@@ -66,6 +66,16 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 .online-box{padding:20px 22px;display:flex;flex-direction:column;gap:12px}
 .online-box h3{font-size:30px}
 .waitblob{animation:hop 1.2s infinite}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(20,20,35,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{width:100%;max-width:600px;padding:20px 16px 22px;display:flex;flex-direction:column;gap:14px;align-items:center;margin:auto 0}
+.mv{display:flex;justify-content:center;gap:12px;align-items:flex-start}
+.mv > div{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+button.hcell{appearance:none;background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:4px;border-radius:12px}
+button.hcell:hover .tri{transform:translateY(-2px) rotate(-2deg)}
+.tri{transition:transform .15s}
+button.xrow{appearance:none;background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;padding:4px;border-radius:12px;width:100%}
+button.xrow:hover{background:var(--grid)}
 .sticker.hurry{display:flex;flex-direction:column;gap:6px;padding:10px 16px 12px;background:var(--hi);text-align:center;transform:rotate(-.6deg)}
 .hurry b{font-family:var(--display);font-size:24px}
 .hurry .hbar{height:12px;border:2.5px solid var(--ink);border-radius:8px;overflow:hidden;background:var(--card)}
@@ -321,7 +331,7 @@ const app=document.getElementById('app');
 let timers=[];
 function later(fn,ms){const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;timers.push(setTimeout(fn,reduced?Math.min(ms,60):ms));}
 let CUR='';
-function show(html){CUR='';timers.forEach(clearTimeout);timers=[];app.innerHTML=html;window.scrollTo(0,0);}
+function show(html){CUR='';document.querySelectorAll('.modal').forEach(m=>m.remove());timers.forEach(clearTimeout);timers=[];app.innerHTML=html;window.scrollTo(0,0);}
 const on=(sel,ev,fn)=>{const el=typeof sel==='string'?app.querySelector(sel):sel;if(el)el.addEventListener(ev,fn);return el;};
 const store={get(k,d){try{const v=localStorage.getItem('hugh:'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('hugh:'+k,JSON.stringify(v));}catch(e){}}};
 function seg(id,opts,val){return `<div class="seg" id="${id}" role="group">${opts.map(([v,t])=>`<button type="button" data-v="${v}" aria-pressed="${v===val}">${t}</button>`).join('')}</div>`;}
@@ -468,9 +478,10 @@ function vsReveal(target,label,picks){
       app.querySelector('#bl'+lose).insertAdjacentHTML('beforeend',`<div class="dmg">−${dmg}</div>`);
       app.querySelector('#hp'+lose).style.width=Math.max(0,VS.hp[lose]/VS.max*100)+'%';app.querySelector('#hpn'+lose).textContent=`${Math.max(0,Math.round(VS.hp[lose]))} / ${VS.max}`;
       msg=`<h3>${esc(VS.names[win])} hits for ${dmg}!</h3><p>${bull?'Bullseye bonus +10. ':''}${r[win].score.toFixed(1)} vs ${r[lose].score.toFixed(1)}${m>1?`, ×${m} damage`:''}.</p>`;}
-    VS.history.push({target,picks,win});
+    VS.history.push({target,label,picks,win});
     const over=VS.hp.some(h=>h<=0);
     app.querySelector('#out').innerHTML=`<div class="stack" style="align-items:center"><div class="sticker ink banner pop">${msg}</div>
+      <button class="link" ${mvAttr({title:`Colour Duel · round ${VS.round}`,target,label,mixes:[{who:VS.names[0],hex:picks[0]},{who:VS.names[1],hex:picks[1]}]})}>Open and share this round</button>
       <button class="btn" id="next">${over?'See who won':'Next round'}</button></div>`;
     on('#next','click',()=>{if(VS.online){onlineNext(VS.round,over);return;}if(over)vsOver();else{VS.round++;vsRound();}});
   },2600);
@@ -481,12 +492,93 @@ function vsOver(){
   const w=VS.hp[0]>VS.hp[1]?0:1;
   show(`${confetti()}<section class="sticker ink pass pop">${blobSVG(PV[w],'love','win')}<h2>${esc(VS.names[w])} wins the duel!</h2>
     <p class="muted">After ${VS.round} round${VS.round>1?'s':''}, with ${Math.max(0,Math.round(VS.hp[w]))} hearts left.</p>
-    <div class="hist">${VS.history.map((h,i)=>`<div class="hcell"><div class="tri" title="Round ${i+1}"><i style="background:${h.picks[0]}"></i><i style="background:${h.target}"></i><i style="background:${h.picks[1]}"></i></div>
-      <span>R${i+1} · ${h.win<0?'tie':esc(VS.names[h.win])}</span></div>`).join('')}</div>
-    <p class="hint">Each strip is ${esc(VS.names[0])}'s mix, the card, then ${esc(VS.names[1])}'s mix.</p>
-    <div class="row c">${VS.online?(NET.host?'<button class="btn" id="again">Rematch</button>':'')+'<button class="btn plain" id="room">Back to the room</button>':'<button class="btn" id="again">Rematch</button><button class="btn plain" id="home">Home</button>'}</div></section>`);
-  if(VS.online){on('#again','click',onlineRematch);on('#room','click',backToRoom);return;}
+    <div class="hist">${VS.history.map((h,i)=>`<button type="button" class="hcell" aria-label="Open round ${i+1}" ${mvAttr({title:`Colour Duel · round ${i+1}`,target:h.target,label:h.label||'',mixes:[{who:VS.names[0],hex:h.picks[0]},{who:VS.names[1],hex:h.picks[1]}]})}><div class="tri"><i style="background:${h.picks[0]}"></i><i style="background:${h.target}"></i><i style="background:${h.picks[1]}"></i></div>
+      <span>R${i+1} · ${h.win<0?'tie':esc(VS.names[h.win])}</span></button>`).join('')}</div>
+    <p class="hint">Each strip is ${esc(VS.names[0])}'s mix, the card, then ${esc(VS.names[1])}'s mix. Tap one to open it and share it.</p>
+    <div class="row c">${VS.online?(NET.host?'<button class="btn" id="again">Rematch</button>':'')+'<button class="btn plain" id="room">Back to the room</button><button class="btn plain" id="home">Home</button>':'<button class="btn" id="again">Rematch</button><button class="btn plain" id="home">Home</button>'}</div></section>`);
+  if(VS.online){on('#again','click',onlineRematch);on('#room','click',backToRoom);on('#home','click',home);return;}
   on('#again','click',()=>{VS={...VS,hp:[VS.max,VS.max],round:1,history:[]};vsRound();});on('#home','click',home);
+}
+
+/* ---------- open a match big, and share it as a picture ---------- */
+let MV=[];
+const mvAttr=o=>{MV.push(o);return `data-mv="${MV.length-1}"`;};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-mv]');if(t&&MV[+t.dataset.mv])matchView(MV[+t.dataset.mv]);});
+/* o: {title, target, label, mixes:[{who, hex}]} */
+function matchView(o){
+  document.querySelectorAll('.modal').forEach(m=>m.remove());
+  const mixes=o.mixes.map(m=>({...m,...judge(o.target,m.hex)}));
+  const order=mixes.length===2?[mixes[0],null,mixes[1]]:[null,...mixes];
+  const cw=Math.min(180,Math.floor((Math.min(innerWidth,600)-80-(order.length-1)*12)/order.length));
+  const el=document.createElement('div');el.className='modal';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Colour match');
+  el.innerHTML=`<div class="sheet sticker ink pop"><div class="cap">${esc(o.title)}</div>
+    <div class="mv">${order.map(m=>m?`<div>${cardHTML({hex:m.hex,label:m.who,kind:mood(m.dE),cw})}<div class="score">${m.score.toFixed(1)}</div><div class="de">ΔE ${m.dE.toFixed(1)}<br>${verdict(m.dE)}</div></div>`
+      :`<div>${cardHTML({hex:o.target,label:o.label||'The card',kind:'wow',cw})}<div class="cap">The card</div></div>`).join('')}</div>
+    <div id="mmsg" class="hint center"></div>
+    <div class="row c"><button class="btn" id="mshare" disabled>Making picture…</button><button class="btn plain" id="mclose">Close</button></div></div>`;
+  document.body.appendChild(el);
+  const close=()=>{el.remove();document.removeEventListener('keydown',esc_);};
+  const esc_=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',esc_);
+  el.addEventListener('click',e=>{if(e.target===el)close();});el.querySelector('#mclose').onclick=close;el.querySelector('#mclose').focus();
+  // Draw the picture now, so the Share tap can hand it straight to the phone's share sheet.
+  let file=null,blob=null;const btn=el.querySelector('#mshare'),msg=el.querySelector('#mmsg');
+  drawShare(o,mixes).then(b=>{blob=b;file=new File([b],'hugh-colour-match.png',{type:'image/png'});btn.disabled=false;btn.textContent='Share picture';})
+    .catch(()=>{btn.textContent='Share picture';msg.textContent='This phone couldn\'t make the picture.';});
+  const showImg=()=>{const url=URL.createObjectURL(blob);
+    msg.innerHTML=`<img src="${url}" alt="Picture of this colour match" style="width:min(100%,320px);border-radius:12px;border:2.5px solid var(--ink)"><br>Press and hold the picture to save or share it, or <a href="${url}" download="hugh-colour-match.png">download it</a>.`;};
+  btn.onclick=()=>{if(!file)return;
+    if(navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:'My Hugh colour match'}).catch(e=>{if(!e||e.name!=='AbortError')showImg();});}
+    else showImg();};
+}
+function sketchBox(x,X,Y,W,H,r,fill,shadow=true){
+  const path=(dx,dy,j)=>{x.beginPath();const q=(a)=>a+(Math.random()-.5)*j;
+    x.moveTo(q(X+r+dx),q(Y+dy));x.arcTo(q(X+W+dx),q(Y+dy),q(X+W+dx),q(Y+H+dy),r);x.arcTo(q(X+W+dx),q(Y+H+dy),q(X+dx),q(Y+H+dy),r);
+    x.arcTo(q(X+dx),q(Y+H+dy),q(X+dx),q(Y+dy),r);x.arcTo(q(X+dx),q(Y+dy),q(X+W+dx),q(Y+dy),r);x.closePath();};
+  if(shadow){x.fillStyle='#282742';path(9,11,0);x.fill();}
+  x.fillStyle=fill;path(0,0,0);x.fill();
+  x.strokeStyle='#282742';x.lineWidth=5;x.lineJoin='round';path(0,0,2.5);x.stroke();x.lineWidth=2.5;path(1.5,-1,3);x.stroke();
+}
+function drawFace(x,cx,cy,s,col,kind){
+  x.save();x.translate(cx,cy);x.scale(s,s);x.fillStyle=x.strokeStyle=col;x.lineWidth=2.8;x.lineCap='round';
+  x.globalAlpha=.6;x.fillStyle='#FF8FA3';[[-23,4],[23,4]].forEach(([a,b])=>{x.beginPath();x.ellipse(a,b,5.5,3.2,0,0,7);x.fill();});x.globalAlpha=1;x.fillStyle=col;
+  if(kind==='love'){[[-15],[15]].forEach(([a])=>{x.beginPath();x.moveTo(a-3,-7);x.lineTo(a,-4);x.lineTo(a+3,-7);x.stroke();});}
+  else if(kind==='dizzy'){[-15,15].forEach(a=>{x.beginPath();x.moveTo(a-3,-8);x.lineTo(a+3,-2);x.moveTo(a+3,-8);x.lineTo(a-3,-2);x.stroke();});}
+  else [-15,15].forEach(a=>{x.beginPath();x.arc(a,-5,3.4,0,7);x.fill();});
+  x.beginPath();
+  if(kind==='love'||kind==='happy'){x.moveTo(-6,3);x.quadraticCurveTo(0,kind==='love'?12:9,6,3);x.stroke();}
+  else if(kind==='meh'){x.moveTo(-5,6);x.lineTo(5,6);x.stroke();}
+  else if(kind==='sad'){x.moveTo(-6,9);x.quadraticCurveTo(0,3,6,9);x.stroke();}
+  else{x.ellipse(0,6,3.6,4.6,0,0,7);x.stroke();}
+  x.restore();
+}
+function fitText(x,t,maxW,size,font){let s=size;do{x.font=`${font.replace('$',s)}`;s-=2;}while(x.measureText(t).width>maxW&&s>14);return x.font;}
+async function drawShare(o,mixes){
+  try{await Promise.race([Promise.all([document.fonts.load('700 60px Gaegu'),document.fonts.load('40px "Patrick Hand"')]),new Promise(r=>setTimeout(r,1500))]);}catch(e){}
+  const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  const INK='#282742',SOFT='#696882',D='700 $px Gaegu, "Comic Sans MS", cursive',B='$px "Patrick Hand", "Comic Sans MS", sans-serif';
+  x.fillStyle='#F5F6F1';x.fillRect(0,0,W,H);x.strokeStyle='rgba(64,104,190,.12)';x.lineWidth=2;
+  for(let i=0;i<=W;i+=45){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke();}for(let j=0;j<=H;j+=45){x.beginPath();x.moveTo(0,j);x.lineTo(W,j);x.stroke();}
+  [['H','#FF9E8A',-7],['u','#FFD966',4],['g','#8FD6A8',-3],['h','#93C3F0',6]].forEach(([ch,col,rot],i)=>{
+    x.save();x.translate(W/2+(i-1.5)*112,130+(i%2)*8);x.rotate(rot*Math.PI/180);sketchBox(x,-46,-54,92,108,22,col);
+    x.fillStyle=INK;x.font=D.replace('$',78);x.textAlign='center';x.textBaseline='middle';x.fillText(ch,0,4);x.restore();});
+  x.textAlign='center';x.textBaseline='alphabetic';x.fillStyle=INK;x.font=fitText(x,o.title,W-120,50,D);x.fillText(o.title,W/2,262);
+  const items=mixes.length===2?[mixes[0],null,mixes[1]]:[null,...mixes],n=items.length;
+  const cw=n===3?292:400,chh=Math.round(cw*4/3),gap=n===3?44:70,x0=(W-(n*cw+(n-1)*gap))/2,y0=320;
+  items.forEach((m,i)=>{
+    const X=x0+i*(cw+gap),hex=m?m.hex:o.target,label=m?m.who:(o.label||'The card');
+    sketchBox(x,X,y0,cw,chh,30,'#FFFFFF');
+    const pad=cw*.09,sw=cw-2*pad,sh=chh*0.72;
+    sketchBox(x,X+pad,y0+pad,sw,sh,20,hex,false);
+    drawFace(x,X+cw/2,y0+pad+sh/2,cw/120,isLight(hex)?INK:'#FFFFFF',m?mood(m.dE):'wow');
+    x.fillStyle=INK;x.font=fitText(x,label,cw-2*pad,Math.round(cw*.12),D);x.fillText(label,X+cw/2,y0+chh-pad*.9);
+    const ty=y0+chh+70;
+    if(m){x.font=D.replace('$',n===3?76:92);x.fillText(m.score.toFixed(1),X+cw/2,ty+10);
+      x.fillStyle=SOFT;x.font=B.replace('$',n===3?32:36);x.fillText(`ΔE ${m.dE.toFixed(1)} · ${verdict(m.dE)}`,X+cw/2,ty+62);}
+    else{x.font=D.replace('$',n===3?44:52);x.fillText('The card',X+cw/2,ty);}
+  });
+  x.fillStyle=INK;x.font=D.replace('$',44);x.fillText('Can you match it?',W/2,H-110);
+  x.fillStyle=SOFT;x.font=B.replace('$',30);x.fillText((location.host+location.pathname).replace(/\/$/,'')||'Hugh',W/2,H-62);
+  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('blob')),'image/png'));
 }
 
 /* ---------- Solo Streak ---------- */
@@ -514,7 +606,7 @@ function soloReveal(target,label,pick){
   const {dE,score}=judge(target,pick),m=soloMult(SO.level),nailed=score>=NAILED,bull=dE<2;
   let dmg=soloDamage(score,SO.level);const before=SO.hp;
   SO.hp=Math.min(SO.max,SO.hp-dmg+(bull?5:0));if(nailed)SO.nailed++;
-  SO.history.push({target,pick,score});
+  SO.history.push({target,label,pick,score});
   const dead=SO.hp<=0,cw=Math.min(170,Math.floor((innerWidth-70)/2));
   show(`<div class="topbar"><span class="pill p1">Nailed ${SO.nailed}</span><span class="pill">Level ${SO.level} · ×${m}</span></div>
     <div class="solo-arena"><div>${cardHTML({hex:target,label,kind:'wow',cw,extra:'cardin'})}<div class="cap">The card</div></div>
@@ -530,6 +622,7 @@ function soloReveal(target,label,pick){
     const head=nailed?(bull?'Bullseye! Nailed it':'Nailed it!'):dmg<=8?'Close one':'Ouch';
     const line=`${dmg?`You lose ${dmg} heart${dmg>1?'s':''}${m>1?` (×${m})`:''}.`:'No damage.'}${bull?' +5 hearts back for the bullseye.':''}`;
     app.querySelector('#out').innerHTML=`<div class="stack" style="align-items:center"><div class="sticker ink banner pop"><h3>${head}</h3><p>${line}</p></div>
+      <button class="link" ${mvAttr({title:`Solo Streak · level ${SO.level}`,target,label,mixes:[{who:'My mix',hex:pick}]})}>Open and share this match</button>
       <button class="btn" id="next">${dead?'See your score':(SO.level%5===0?`Next colour · damage now ×${soloMult(SO.level+1)}`:'Next colour')}</button></div>`;
     on('#next','click',()=>{if(dead)soloOver();else{SO.level++;soloLevel();}});
   },1900);
@@ -540,8 +633,8 @@ function soloOver(){
   show(`${isBest&&SO.nailed?confetti():''}<section class="sticker ink pass pop">${blobSVG('--p1',SO.nailed>=prev&&SO.nailed?'love':'sad',isBest?'win':'')}
     <h2>${isBest&&SO.nailed?'New best! ':''}You nailed ${SO.nailed} colour${SO.nailed===1?'':'s'}</h2>
     <div class="statrow"><div class="sticker ink stat"><b>${SO.level}</b><span>levels</span></div><div class="sticker ink stat"><b>${avg.toFixed(1)}</b><span>average score</span></div><div class="sticker ink stat"><b>${Math.max(prev,SO.nailed)}</b><span>best nailed</span></div></div>
-    <div class="hist">${SO.history.map((h,i)=>`<div class="hcell"><div class="tri" style="width:64px"><i style="background:${h.target}"></i><i style="background:${h.pick};flex:1;border-inline:0;border-left:2px solid var(--ink)"></i></div><span>${h.score>=NAILED?'★ ':''}${Math.round(h.score)}</span></div>`).join('')}</div>
-    <p class="hint">Each pair is the card, then your mix. Stars are colours you nailed.</p>
+    <div class="hist">${SO.history.map((h,i)=>`<button type="button" class="hcell" aria-label="Open level ${i+1}" ${mvAttr({title:`Solo Streak · level ${i+1}`,target:h.target,label:h.label||'',mixes:[{who:'My mix',hex:h.pick}]})}><div class="tri" style="width:64px"><i style="background:${h.target}"></i><i style="background:${h.pick};flex:1;border-inline:0;border-left:2px solid var(--ink)"></i></div><span>${h.score>=NAILED?'★ ':''}${Math.round(h.score)}</span></button>`).join('')}</div>
+    <p class="hint">Each pair is the card, then your mix. Stars are colours you nailed. Tap one to open it and share it.</p>
     <div class="row c"><button class="btn" id="again">Go again</button><button class="btn plain" id="home">Home</button></div></section>`);
   on('#again','click',()=>{SO={hp:100,max:100,level:1,nailed:0,view:SO.view,history:[]};soloLevel();});on('#home','click',home);
 }
@@ -622,12 +715,12 @@ function exReveal(players,again,extraHTML=''){
     <div class="cols">${players.map((p,i)=>`<section class="sticker ink xcol">
       <div class="row" style="justify-content:space-between">${blobSVG(PV[i],i===w?'love':w<0?'happy':'sad',i===w?'win':'')}<div style="text-align:right"><div class="pname">${esc(p.name)}</div>
       <div class="score">${T[i].total.toFixed(1)}</div><div class="de">${T[i].nailed} of ${p.res.length} nailed (${NAILED}+)</div></div></div>
-      ${T[i].rows.map((r,k)=>`<div class="xrow cardin" style="animation-delay:${0.3+k*0.18}s"><div class="duo2"><div class="mini" style="background:${r.t}" title="The card"></div><div class="mini" style="background:${r.p}" title="${esc(p.name)}'s mix"></div></div>
-        <div class="xname">${esc(r.n)}<br><span class="de">ΔE ${r.dE.toFixed(1)} · ${verdict(r.dE)}</span></div><div class="xscore">${r.score.toFixed(1)}</div></div>`).join('')}
+      ${T[i].rows.map((r,k)=>`<button type="button" class="xrow cardin" style="animation-delay:${0.3+k*0.18}s" ${mvAttr({title:`Card Swap · ${p.name}`,target:r.t,label:r.n,mixes:[{who:p.name,hex:r.p}]})}><div class="duo2"><div class="mini" style="background:${r.t}" title="The card"></div><div class="mini" style="background:${r.p}" title="${esc(p.name)}'s mix"></div></div>
+        <div class="xname">${esc(r.n)}<br><span class="de">ΔE ${r.dE.toFixed(1)} · ${verdict(r.dE)}</span></div><div class="xscore">${r.score.toFixed(1)}</div></button>`).join('')}
     </section>`).join('')}</div>
-    <p class="hint center">In each row the left square is the card and the right one is the mix. Winner has the highest total; a tie goes to whoever nailed more cards.</p>
+    <p class="hint center">In each row the left square is the card and the right one is the mix. Tap a row to open it and share it. Winner has the highest total; a tie goes to whoever nailed more cards.</p>
     ${extraHTML}
-    <div class="row c">${again?'<button class="btn" id="again">Swap again</button>':''}${players.online?'<button class="btn plain" id="room">Back to the room</button>':'<button class="btn plain" id="home">Home</button>'}</div>`);
+    <div class="row c">${again?'<button class="btn" id="again">Swap again</button>':''}${players.online?'<button class="btn plain" id="room">Back to the room</button>':''}<button class="btn plain" id="home">Home</button></div>`);
   if(again)on('#again','click',again);on('#home','click',home);on('#room','click',backToRoom);
 }
 
@@ -701,12 +794,13 @@ const saveIntents=()=>store.set('intents:'+NET.code,NET.intents);
 
 /* status pill */
 const netEl=document.createElement('button');netEl.id='net';netEl.type='button';netEl.hidden=true;document.body.insertBefore(netEl,app);
-netEl.addEventListener('click',()=>{if(!NET.active)return;if(up()){home();return;}if(NET.host)hostRoom();else{clearTimeout(NET.rejoin);NET.rejoin=null;scheduleRejoin(0);}});
+netEl.addEventListener('click',()=>{if(NET.active)home();});
+function reconnectNow(){if(NET.host)hostRoom();else{clearTimeout(NET.rejoin);NET.rejoin=null;scheduleRejoin(0);}}
 function netStatus(){
   if(!NET.active){netEl.hidden=true;document.body.classList.remove('online');return;}
   netEl.hidden=false;document.body.classList.add('online');netEl.classList.toggle('lost',!up());
   const them=NET.doc&&NET.doc.names[1-ME()];
-  netEl.textContent=up()?`● Room ${NET.code} · with ${them||'partner'} · menu`:(NET.host&&!(NET.doc&&NET.doc.guest))?`● Room ${NET.code} · waiting for partner`:`● Room ${NET.code} · reconnecting… tap to retry`;
+  netEl.textContent=up()?`● Room ${NET.code} · with ${them||'partner'} · menu`:(NET.host&&!(NET.doc&&NET.doc.guest))?`● Room ${NET.code} · waiting for partner`:`● Room ${NET.code} · reconnecting… · menu`;
 }
 
 /* connection plumbing */
@@ -753,7 +847,7 @@ function joinPeer(code){
 }
 function scheduleRejoin(ms=2500){
   if(NET.host||!NET.active||NET.rejoin||up())return;
-  NET.rejoin=setTimeout(async()=>{const err=await joinPeer(NET.code);NET.rejoin=null;netStatus();if(err&&NET.active&&!up())scheduleRejoin();},ms);
+  NET.rejoin=setTimeout(async()=>{const err=await joinPeer(NET.code);NET.rejoin=null;NET.fails=err?(NET.fails||0)+1:0;netStatus();renderOnline();if(err&&NET.active&&!up())scheduleRejoin();},ms);
 }
 let wake=null;
 async function keepAwake(){try{if('wakeLock' in navigator&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null;});}}catch(e){}}
@@ -796,7 +890,7 @@ function apply(seat,it){
     if(it.k==='pick'&&it.round===g.round&&!g.revealed&&!g.picks[seat]&&hexOk(it.hex)){
       g.picks[seat]=it.hex;
       if(g.picks[0]&&g.picks[1]){const o=duelOutcome(g.target,g.picks,g.round);
-        g.hpBefore=g.hp.slice();if(o.win>=0)g.hp[1-o.win]-=o.dmg;g.history.push({target:g.target,picks:g.picks.slice(),win:o.win});
+        g.hpBefore=g.hp.slice();if(o.win>=0)g.hp[1-o.win]-=o.dmg;g.history.push({target:g.target,label:g.label,picks:g.picks.slice(),win:o.win});
         g.revealed=true;g.over=g.hp.some(h=>h<=0);}
       return commit();
     }
@@ -853,7 +947,8 @@ function bootOnline(){
   const r=store.get('room',null);if(!r||!r.code)return false;
   setRoom(r.code,!!r.host);NET.doc=store.get('doc:'+r.code,null);
   if(NET.host&&!NET.doc){clearRoom();return false;}
-  netStatus();renderOnline();
+  netStatus();
+  if(NET.doc&&NET.doc.game&&finished(NET.doc.game)){NET.away=true;home();}else renderOnline();
   if(NET.host)hostRoom();else scheduleRejoin(0);
   return true;
 }
@@ -884,14 +979,18 @@ function roomName(host,err=''){
   });
 }
 function onlineRematch(){act({k:'start',opts:LOBBY.opts});}
-function backToRoom(){act({k:'lobby',gid:NET.doc&&NET.doc.game&&NET.doc.game.gid});}
+function backToRoom(){if(!NET.host&&!up())toast('Can\'t reach the room right now. Hugh will pass it on when it reconnects.');act({k:'lobby',gid:NET.doc&&NET.doc.game&&NET.doc.game.gid});}
 
 /* screens: drawn from the shared document; a screen is only redrawn when what it shows changes */
 function renderOnline(){
   if(!NET.active)return;
   const d=NET.doc,me=ME(),them=1-me;
   let key,draw,post=null;
-  if(!d){key='connecting';draw=()=>waitScreen(`Joining room ${esc(NET.code)}…`);}
+  if(!NET.host&&!up()&&(NET.fails||0)>=2){const hn=esc(d&&d.names[0]||'your partner');key='gone';draw=()=>{show(`<section class="sticker ink pass pop">${blobSVG('--p2','sad')}<h2>Can't reach ${hn}'s room</h2>
+      <p class="muted">${hn}'s phone may have closed Hugh, or the room was closed. Hugh keeps trying in the background and carries on as soon as it gets through.</p>
+      <div class="row c"><button class="btn" id="retry">Try again now</button><button class="btn plain" id="leave">Leave the room</button></div><button class="link" id="home">Home</button></section>`);
+    on('#retry','click',reconnectNow);on('#leave','click',leaveRoom);on('#home','click',home);};}
+  else if(!d){key='connecting';draw=()=>waitScreen(`Joining room ${esc(NET.code)}…`);}
   else if(!NET.host&&d.guest&&d.guest!==DEVICE){key='full';draw=()=>{show(`<section class="sticker ink pass">${blobSVG('--p2','sad')}<h2>That room is full</h2><p class="muted">Someone else is playing ${esc(d.names[0])} in room ${esc(NET.code)}.</p><button class="btn" id="leave">OK</button></section>`);on('#leave','click',leaveRoom);};}
   else if(!d.game){key=`lobby|${d.names.join('|')}|${!!d.guest}|${up()}`;draw=lobby;}
   else{
@@ -967,14 +1066,16 @@ function lobby(){
 }
 function waitScreen(text,hex){
   show(`<section class="sticker ink pass pop">${hex?cardHTML({hex,cw:120,kind:'happy'}):blobSVG(PV[ME()],'happy','waitblob')}<h2>${text}</h2>
-    <p class="muted">Keep Hugh open. It moves on by itself, and picks up where it left off if you close it.</p></section>`);
+    <p class="muted">Keep Hugh open. It moves on by itself, and picks up where it left off if you close it.</p><button class="link" id="wmenu">Room menu</button></section>`);
+  on('#wmenu','click',home);
 }
 function toast(text){const t=document.createElement('div');t.className='sticker ink banner pop';t.style.cssText='position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px)';t.textContent=text;document.body.appendChild(t);setTimeout(()=>t.remove(),3500);}
 /* home shows the room you're in */
 const homeBase=home;
 home=function(){homeBase();if(!NET.active)return;NET.away=true;const box=app.querySelector('.online-box');
   box.innerHTML=`<h3>You're in room ${esc(NET.code)}</h3>
-    <div class="row"><button class="btn" id="toroom">Back to the game</button>${NET.host&&NET.doc&&NET.doc.game?'<button class="btn plain" id="endg">End this game</button>':''}<button class="btn plain" id="leave">${NET.host?'Close the room':'Leave the room'}</button></div>`;
+    ${up()?'':`<p class="muted">Not connected to ${esc(NET.doc&&NET.doc.names[1-ME()]||'your partner')} right now.</p>`}<div class="row"><button class="btn" id="toroom">Back to the game</button>${up()?'':'<button class="btn plain" id="recon">Reconnect</button>'}${NET.host&&NET.doc&&NET.doc.game?'<button class="btn plain" id="endg">End this game</button>':''}<button class="btn plain" id="leave">${NET.host?'Close the room':'Leave the room'}</button></div>`;
+  on('#recon','click',()=>{reconnectNow();toast('Reconnecting…');});
   on('#endg','click',()=>{NET.away=false;backToRoom();});
   on('#toroom','click',()=>{NET.away=false;NET.key='';renderOnline();});on('#leave','click',leaveRoom);};
 
