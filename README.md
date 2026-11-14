@@ -16,7 +16,9 @@ Closeness is measured with CIEDE2000 (ΔE). A perfect match scores 100, ΔE 5 ab
 3. The other taps **Join a room**, types their name and the code.
 4. The host picks Colour Duel or Card Swap and taps **Start on both phones**.
 
-The phones find each other through PeerJS's free public broker, using the room code as the host's address. After that, game moves go straight from phone to phone (WebRTC), so it works on different Wi-Fi networks too. Nothing is stored on a server. If a phone drops (for example the screen locks), keep Hugh open and it reconnects by itself.
+The phones find each other through PeerJS's free public broker, using the room code as the host's address, the same way Paddle Draft pairs phones. After that, game moves go straight from phone to phone (WebRTC), so it works on different Wi-Fi networks too. Nothing is stored on a server.
+
+The room is one shared copy of the game. The host's phone keeps it up to date and each phone saves its own copy, so a reload, a locked screen or a closed tab doesn't lose anything. Open Hugh again and it rejoins the same room and carries on: half-made decks, locked-in picks and hearts are all kept. Tap the room pill at the top for the menu (back to the game, end the game, leave the room).
 
 You can also play on one phone (pass and play), or send each other decks as codes by text message.
 
