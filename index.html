@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hugh</title>
+<meta name="description" content="A cute colour matching duel for two phones.">
+<meta name="theme-color" content="#F5F6F1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hugh">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Patrick+Hand&display=swap">
+<style>
+/* Layout: one centred sketchbook page on graph paper; each screen is a single column of hand-inked sticker cards. */
+:root{
+  --paper:#F5F6F1;
+  --grid:rgba(64,104,190,.11);
+  --card:#FFFFFF;
+  --ink:#282742;
+  --ink-soft:#696882;
+  --hi:#FFE27A;
+  --p1:#FF7D6E;
+  --p2:#56A6E2;
+  --good:#2FA866;
+  --bad:#E0464C;
+  --blush:#FF8FA3;
+  --display:'Gaegu','Chalkboard SE','Comic Sans MS',cursive;
+  --body:'Patrick Hand','Segoe Print','Chalkboard SE','Comic Sans MS',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1C1B29; --grid:rgba(160,170,255,.07); --card:#2A2940; --ink:#EEEAF6; --ink-soft:#A6A4BF;
+    --hi:#6A5B1C; --p1:#FF8E80; --p2:#6DB6EE; --good:#4CC983; --bad:#FF6A6F; --blush:#FF8FA3; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1C1B29; --grid:rgba(160,170,255,.07); --card:#2A2940; --ink:#EEEAF6; --ink-soft:#A6A4BF;
+  --hi:#6A5B1C; --p1:#FF8E80; --p2:#6DB6EE; --good:#4CC983; --bad:#FF6A6F; --blush:#FF8FA3; color-scheme:dark;
+}
+html,body{min-height:100%}
+body{
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink); font-family:var(--body); font-size:18px; line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:calc(20px + env(safe-area-inset-top,0px)) calc(40px + env(safe-area-inset-bottom,0px));margin:0;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+#net{position:fixed;z-index:20;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font-family:var(--display);font-weight:700;font-size:17px;
+  padding:2px 14px 4px;border:2.5px solid var(--ink);border-radius:999px;background:var(--card);box-shadow:2px 3px 0 var(--ink);white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+#net::first-letter{color:var(--good)}
+#net.lost::first-letter{color:var(--bad)}
+body.online{padding-top:calc(52px + env(safe-area-inset-top,0px))}
+.roomcode{display:flex;gap:8px;justify-content:center}
+.roomcode span{font-family:var(--display);font-weight:700;font-size:clamp(48px,14vw,72px);width:1.1em;height:1.25em;display:grid;place-items:center;background:var(--hi);border:3px solid var(--ink);border-radius:14px 18px 13px 19px/18px 13px 19px 14px;box-shadow:3px 4px 0 var(--ink)}
+.roomcode span:nth-child(odd){transform:rotate(-4deg)}.roomcode span:nth-child(even){transform:rotate(3deg)}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-weight:700;font-size:34px;text-align:center}
+.online-box{padding:20px 22px;display:flex;flex-direction:column;gap:12px}
+.online-box h3{font-size:30px}
+.waitblob{animation:hop 1.2s infinite}
+#app{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;line-height:1.05;text-wrap:balance}
+h2{font-size:clamp(30px,6vw,44px)}
+h3{font-size:26px}
+p{margin:0}
+.muted{color:var(--ink-soft)}
+.center{text-align:center}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.row.c{justify-content:center}
+.stack{display:flex;flex-direction:column;gap:14px}
+.hl{background:linear-gradient(transparent 45%,var(--hi) 45%,var(--hi) 88%,transparent 88%);padding:0 .15em}
+
+/* hand-inked outline: a wobbly border drawn on a pseudo-element */
+.ink{position:relative}
+.ink::before{content:"";position:absolute;inset:0;border:2.5px solid var(--ink);border-radius:inherit;filter:url(#wobble);pointer-events:none}
+.sticker{background:var(--card);border-radius:18px 22px 17px 24px/22px 17px 24px 18px;box-shadow:4px 5px 0 var(--ink)}
+
+/* buttons */
+.btn{appearance:none;font:inherit;font-family:var(--display);font-weight:700;font-size:24px;color:var(--ink);
+  background:var(--hi);border:0;padding:10px 26px 12px;border-radius:16px 20px 15px 22px/20px 15px 22px 16px;
+  box-shadow:3px 4px 0 var(--ink);cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative}
+.btn::before{content:"";position:absolute;inset:0;border:2.5px solid var(--ink);border-radius:inherit;filter:url(#wobble);pointer-events:none}
+.btn:hover{transform:translate(-1px,-2px) rotate(-1deg);box-shadow:4px 6px 0 var(--ink)}
+.btn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn.plain{background:var(--card)}
+.btn.small{font-size:19px;padding:6px 16px 8px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.link{appearance:none;background:none;border:0;font:inherit;color:var(--ink);text-decoration:underline wavy var(--ink-soft);text-underline-offset:5px;cursor:pointer;padding:4px}
+:focus-visible{outline:3px dashed var(--p2);outline-offset:4px}
+
+/* home */
+.logo{display:flex;justify-content:center;gap:6px;margin-top:8px}
+.logo span{font-family:var(--display);font-weight:700;font-size:clamp(64px,16vw,118px);line-height:1;color:#2b2a44;
+  width:1.05em;height:1.18em;display:grid;place-items:center;border-radius:20px 26px 18px 28px/26px 18px 28px 20px;box-shadow:4px 5px 0 var(--ink);position:relative}
+.logo span::before{content:"";position:absolute;inset:0;border:3px solid var(--ink);border-radius:inherit;filter:url(#wobble)}
+.logo span:nth-child(1){background:#FF9E8A;transform:rotate(-7deg)}
+.logo span:nth-child(2){background:#FFD966;transform:rotate(4deg) translateY(6px)}
+.logo span:nth-child(3){background:#8FD6A8;transform:rotate(-3deg)}
+.logo span:nth-child(4){background:#93C3F0;transform:rotate(6deg) translateY(4px)}
+.tag{font-size:22px;text-align:center}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px}
+.mode{appearance:none;font:inherit;color:var(--ink);text-align:left;cursor:pointer;padding:20px 22px 22px;display:flex;flex-direction:column;gap:10px;transition:transform .15s}
+.mode:hover{transform:rotate(-1deg) translateY(-3px)}
+.mode:nth-child(2):hover{transform:rotate(1deg) translateY(-3px)}
+.mode .art{height:96px;display:flex;align-items:flex-end;gap:10px}
+.mode h3{font-size:34px}
+.note{padding:16px 20px;font-size:17px;transform:rotate(-.6deg)}
+.note b{font-family:var(--display);font-size:21px}
+
+/* setup forms */
+.panel{padding:22px;display:flex;flex-direction:column;gap:18px}
+label.f{display:flex;flex-direction:column;gap:6px;font-family:var(--display);font-size:22px;font-weight:700;flex:1 1 200px;min-width:0}
+input[type=text],textarea{font:inherit;font-family:var(--body);font-size:20px;color:var(--ink);background:var(--paper);border:2.5px solid var(--ink);
+  border-radius:12px 15px 11px 16px/15px 11px 16px 12px;padding:8px 12px;width:100%}
+textarea{resize:vertical;min-height:120px;font-size:15px;word-break:break-all}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{appearance:none;font:inherit;font-size:18px;color:var(--ink);background:var(--card);border:2.5px solid var(--ink);border-radius:14px 10px 15px 11px/11px 15px 10px 14px;padding:6px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--hi);box-shadow:2px 3px 0 var(--ink)}
+.seg-label{font-family:var(--display);font-size:22px;font-weight:700}
+.hint{font-size:16px;color:var(--ink-soft)}
+
+/* colour cards */
+.ccard{width:var(--cw,190px);max-width:100%;aspect-ratio:3/4;perspective:900px;flex:none}
+.ccard-in{position:relative;width:100%;height:100%;transition:transform .7s cubic-bezier(.3,1.4,.5,1);transform-style:preserve-3d}
+.ccard.flipped .ccard-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:var(--card);
+  border-radius:16px 20px 15px 22px/20px 15px 22px 16px;box-shadow:4px 5px 0 var(--ink);padding:9%;display:flex;flex-direction:column;gap:7%}
+.face::before{content:"";position:absolute;inset:0;border:2.5px solid var(--ink);border-radius:inherit;filter:url(#wobble);pointer-events:none}
+.face.back{transform:rotateY(180deg);align-items:center;justify-content:center;
+  background-image:repeating-linear-gradient(45deg,transparent 0 9px,var(--grid) 9px 11px),repeating-linear-gradient(-45deg,transparent 0 9px,var(--grid) 9px 11px)}
+.back-q{font-family:var(--display);font-weight:700;font-size:calc(var(--cw,190px)*.42);line-height:1;color:var(--ink);background:var(--card);
+  width:1.2em;height:1.2em;display:grid;place-items:center;border-radius:50% 46% 52% 44%;border:2.5px solid var(--ink)}
+.swatch{flex:1;border-radius:12px 16px 11px 17px/16px 11px 17px 12px;position:relative;display:grid;place-items:center;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}
+.swatch svg{width:44%;height:auto;overflow:visible}
+.clabel{font-family:var(--display);font-weight:700;font-size:calc(var(--cw,190px)*.12);text-align:center;line-height:1;min-height:1em;overflow-wrap:anywhere}
+.ccard.nameonly .swatch{background:var(--paper)!important;box-shadow:none;background-image:repeating-linear-gradient(transparent 0 26px,var(--grid) 26px 28px)!important;
+  font-family:var(--display);font-size:calc(var(--cw,190px)*.13);font-weight:700;padding:10px;text-align:center;line-height:1.1;overflow-wrap:anywhere}
+.cap{font-family:var(--display);font-size:20px;font-weight:700;text-align:center}
+.timer{font-family:var(--display);font-weight:700;font-size:24px;text-align:center;min-height:1.2em}
+
+/* match screen */
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.pill{font-family:var(--display);font-weight:700;font-size:20px;padding:3px 14px 5px;border:2.5px solid var(--ink);border-radius:999px;background:var(--card);white-space:nowrap}
+.pill.p1{background:var(--p1);color:#2b2a44}
+.pill.p2{background:var(--p2);color:#2b2a44}
+.duo{display:flex;justify-content:center;align-items:flex-start;gap:clamp(14px,4vw,40px)}
+.duo > div{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.picker{display:flex;flex-direction:column;gap:14px;width:100%;max-width:520px;margin:0 auto}
+.sv{position:relative;height:clamp(170px,38vw,240px);border-radius:14px 18px 13px 19px/18px 13px 19px 14px;cursor:crosshair;touch-action:none;box-shadow:3px 4px 0 var(--ink)}
+.sv::after,.hue::after{content:"";position:absolute;inset:0;border:2.5px solid var(--ink);border-radius:inherit;filter:url(#wobble);pointer-events:none}
+.hue{position:relative;height:38px;border-radius:19px 16px 20px 15px/16px 20px 15px 19px;cursor:ew-resize;touch-action:none;box-shadow:3px 4px 0 var(--ink);
+  background:linear-gradient(to right,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)}
+.thumb{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2.5px #282742,2px 3px 0 2px rgba(40,39,66,.5);pointer-events:none}
+.hue .thumb{top:50%;background:transparent}
+
+/* players + hp */
+.arena{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(8px,3vw,28px);align-items:start}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;text-align:center}
+.pname{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,30px);overflow-wrap:anywhere}
+.hp{width:100%;max-width:220px;height:22px;border:2.5px solid var(--ink);border-radius:12px 9px 13px 8px/9px 13px 8px 12px;background:var(--card);overflow:hidden;position:relative}
+.hp i{position:absolute;inset:0 auto 0 0;transition:width 1s cubic-bezier(.4,1.6,.5,1);
+  background-image:repeating-linear-gradient(-45deg,rgba(0,0,0,.12) 0 4px,transparent 4px 9px)}
+.hpnum{font-family:var(--display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.blob{width:clamp(64px,14vw,96px);height:auto;overflow:visible}
+.blob.hit{animation:hit .5s 2}
+.blob.win{animation:hop .45s 2}
+@keyframes hit{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px) rotate(-6deg)}75%{transform:translateX(7px) rotate(6deg)}}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+.dmg{position:absolute;left:50%;top:-6px;transform:translateX(-50%);font-family:var(--display);font-weight:700;font-size:38px;color:var(--bad);animation:float 1.6s forwards;pointer-events:none;white-space:nowrap}
+@keyframes float{0%{opacity:0;transform:translate(-50%,10px) scale(.6)}20%{opacity:1;transform:translate(-50%,-10px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-50px)}}
+.score{font-family:var(--display);font-weight:700;font-size:clamp(26px,5vw,36px);line-height:1;font-variant-numeric:tabular-nums}
+.de{font-size:15px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.verdict{font-family:var(--display);font-size:20px;font-weight:700}
+.banner{padding:14px 18px 16px;text-align:center;transform:rotate(-1deg)}
+.banner h3{font-size:clamp(26px,5vw,34px)}
+.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes pop{from{opacity:0;transform:scale(.7) rotate(-4deg)}}
+.cardin{animation:cardin .55s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes cardin{from{opacity:0;transform:translateY(20px) rotate(-6deg)}}
+
+/* history + exchange tables */
+.hist{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.hcell{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px}
+.tri{display:flex;border:2.5px solid var(--ink);border-radius:10px 12px 9px 13px/12px 9px 13px 10px;overflow:hidden;width:96px;height:44px}
+.tri i{flex:1}
+.tri i:nth-child(2){flex:1.4;border-inline:2px solid var(--ink)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px}
+.xcol{padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.xrow{display:grid;grid-template-columns:auto auto 1fr;gap:12px;align-items:center}
+.xrow .duo2{display:flex;gap:4px}
+.mini{width:52px;height:52px;border:2.5px solid var(--ink);border-radius:11px 14px 10px 15px/14px 10px 15px 11px}
+.xname{font-size:16px;line-height:1.15;overflow-wrap:anywhere;min-width:0}
+.xscore{font-family:var(--display);font-weight:700;font-size:24px;font-variant-numeric:tabular-nums}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.thumbs button{appearance:none;width:44px;height:58px;border:2.5px solid var(--ink);border-radius:9px 11px 8px 12px/11px 8px 12px 9px;cursor:pointer;padding:0;font:inherit;font-family:var(--display);font-weight:700;color:var(--ink-soft);background:var(--card)}
+.thumbs button.on{box-shadow:0 0 0 3px var(--hi),3px 4px 0 var(--ink);transform:translateY(-3px)}
+.pass{padding:36px 22px;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;min-height:50vh;justify-content:center}
+.pass .blob{width:120px}
+.confetti{position:relative;height:0}
+.confetti i{position:absolute;width:14px;height:18px;border:2px solid var(--ink);border-radius:4px;top:0;animation:fall 2.6s ease-in forwards}
+@keyframes fall{from{transform:translateY(-30px) rotate(0)}to{transform:translateY(420px) rotate(540deg);opacity:0}}
+.err{color:var(--bad);font-size:17px}
+@media (max-width:520px){
+  body{font-size:17px}
+  .arena .ccard{--cw:96px!important}
+  .xrow{grid-template-columns:auto 1fr;}
+  .xrow .xscore{grid-column:2}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<main id="app" aria-live="polite"></main>
+
+<script>
+(()=>{
+'use strict';
+/* ---------- colour science ---------- */
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+function hsvToRgb(h,s,v){const f=(n,k=(n+h/60)%6)=>v-v*s*Math.max(Math.min(k,4-k,1),0);return [f(5),f(3),f(1)].map(x=>Math.round(x*255));}
+function rgbToHex(c){return '#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');}
+function hexToRgb(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));}
+function hsvHex(o){return rgbToHex(hsvToRgb(o.h,o.s,o.v));}
+function rgbToHsv([r,g,b]){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;
+  if(d){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360;}return {h,s:mx?d/mx:0,v:mx};}
+function rgbToLab(rgb){
+  const [r,g,b]=rgb.map(x=>{x/=255;return x<=0.04045?x/12.92:Math.pow((x+0.055)/1.055,2.4);});
+  let X=(r*0.4124564+g*0.3575761+b*0.1804375)/0.95047, Y=(r*0.2126729+g*0.7151522+b*0.0721750), Z=(r*0.0193339+g*0.1191920+b*0.9503041)/1.08883;
+  const f=t=>t>216/24389?Math.cbrt(t):(24389/27*t+16)/116;
+  const fx=f(X),fy=f(Y),fz=f(Z);return [116*fy-16,500*(fx-fy),200*(fy-fz)];
+}
+function dE00(A,B){
+  const [L1,a1,b1]=A,[L2,a2,b2]=B,rad=Math.PI/180,deg=180/Math.PI;
+  const C1=Math.hypot(a1,b1),C2=Math.hypot(a2,b2),Cb=(C1+C2)/2,Cb7=Math.pow(Cb,7);
+  const G=0.5*(1-Math.sqrt(Cb7/(Cb7+Math.pow(25,7))));
+  const a1p=(1+G)*a1,a2p=(1+G)*a2,C1p=Math.hypot(a1p,b1),C2p=Math.hypot(a2p,b2);
+  const hp=(x,y)=>{if(x===0&&y===0)return 0;const t=Math.atan2(y,x)*deg;return t<0?t+360:t;};
+  const h1p=hp(a1p,b1),h2p=hp(a2p,b2),dLp=L2-L1,dCp=C2p-C1p;
+  let dhp=0;if(C1p*C2p!==0){dhp=h2p-h1p;if(dhp>180)dhp-=360;else if(dhp<-180)dhp+=360;}
+  const dHp=2*Math.sqrt(C1p*C2p)*Math.sin(dhp*rad/2);
+  const Lbp=(L1+L2)/2,Cbp=(C1p+C2p)/2;
+  let hbp=h1p+h2p;if(C1p*C2p!==0){if(Math.abs(h1p-h2p)>180)hbp+=(hbp<360?360:-360);hbp/=2;}
+  const T=1-0.17*Math.cos((hbp-30)*rad)+0.24*Math.cos(2*hbp*rad)+0.32*Math.cos((3*hbp+6)*rad)-0.20*Math.cos((4*hbp-63)*rad);
+  const dTh=30*Math.exp(-Math.pow((hbp-275)/25,2)),Cbp7=Math.pow(Cbp,7);
+  const Rc=2*Math.sqrt(Cbp7/(Cbp7+Math.pow(25,7)));
+  const Sl=1+(0.015*Math.pow(Lbp-50,2))/Math.sqrt(20+Math.pow(Lbp-50,2)),Sc=1+0.045*Cbp,Sh=1+0.015*Cbp*T,Rt=-Math.sin(2*dTh*rad)*Rc;
+  return Math.sqrt(Math.pow(dLp/Sl,2)+Math.pow(dCp/Sc,2)+Math.pow(dHp/Sh,2)+Rt*(dCp/Sc)*(dHp/Sh));
+}
+const deltaE=(h1,h2)=>dE00(rgbToLab(hexToRgb(h1)),rgbToLab(hexToRgb(h2)));
+const scoreFrom=dE=>100*Math.exp(-Math.pow(dE/18,1.3));
+const NAILED=85;
+function judge(target,pick){const d=deltaE(target,pick);return {dE:d,score:scoreFrom(d)};}
+function verdict(d){return d<1.5?'Identical twins!':d<3?'Basically twins':d<6?'So close':d<12?'Same family':d<22?'Distant cousins':'Different planet';}
+function mood(d){return d<3?'love':d<8?'happy':d<15?'meh':d<25?'sad':'dizzy';}
+function isLight(hex){return rgbToLab(hexToRgb(hex))[0]>62;}
+function randomColour(){return hsvHex({h:Math.random()*360,s:0.18+Math.random()*0.82,v:0.28+Math.random()*0.72});}
+const ADJ={dark:['Midnight','Sleepy','Deep','Moody','Secret'],light:['Dreamy','Soft','Misty','Baby','Whisper'],vivid:['Zappy','Juicy','Loud','Bouncy','Sparkly'],dull:['Dusty','Old','Cosy','Quiet','Toasty']};
+const NOUN=[[15,['Cherry','Tomato','Ladybug']],[40,['Tangerine','Apricot','Pumpkin']],[65,['Honey','Mustard','Butter']],[80,['Lemon','Banana','Sunbeam']],[150,['Pickle','Fern','Moss','Frog']],
+  [185,['Lagoon','Mint','Seafoam']],[215,['Sky','Puddle','Glacier']],[250,['Blueberry','Denim','Ocean']],[285,['Grape','Violet','Bruise']],[330,['Plum','Bubblegum','Orchid']],[361,['Flamingo','Raspberry','Rose']]];
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+function nameFor(hex){const {h,s,v}=rgbToHsv(hexToRgb(hex));
+  if(s<0.14)return pickOne(v<0.35?['Midnight Pebble','Charcoal Cat','Inkwell']:v>0.8?['Cloud','Fresh Snow','Marshmallow']:['Pebble','Fog','Rainy Day','Elephant']);
+  const noun=pickOne(NOUN.find(n=>h<n[0])[1]);const adj=pickOne(v<0.45?ADJ.dark:(s<0.4&&v>0.7)?ADJ.light:(s>0.7&&v>0.7)?ADJ.vivid:ADJ.dull);return adj+' '+noun;}
+
+/* ---------- little drawings ---------- */
+function faceSVG(kind,fg){
+  const eyes={love:'<path d="M12 9 l3 3 3-3 M42 9 l3 3 3-3" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    dizzy:'<path d="M12 8 l6 6 M18 8 l-6 6 M42 8 l6 6 M48 8 l-6 6" stroke-width="2.6" stroke-linecap="round"/>'}[kind]||'<circle cx="15" cy="11" r="3.4" stroke="none"/><circle cx="45" cy="11" r="3.4" stroke="none"/>';
+  const mouth={love:'<path d="M23 19 q7 9 14 0" fill="none" stroke-width="2.8" stroke-linecap="round"/>',happy:'<path d="M24 20 q6 6 12 0" fill="none" stroke-width="2.8" stroke-linecap="round"/>',
+    meh:'<path d="M25 22 h10" stroke-width="2.8" stroke-linecap="round"/>',sad:'<path d="M24 24 q6 -6 12 0" fill="none" stroke-width="2.8" stroke-linecap="round"/>',
+    dizzy:'<ellipse cx="30" cy="23" rx="4" ry="5" fill="none" stroke-width="2.6"/>',idle:'<path d="M26 20 q4 4 8 0" fill="none" stroke-width="2.8" stroke-linecap="round"/>',
+    wow:'<ellipse cx="30" cy="22" rx="3.5" ry="4.5" fill="none" stroke-width="2.6"/>'}[kind]||'';
+  return `<svg viewBox="0 0 60 32" aria-hidden="true" fill="${fg}" stroke="${fg}"><ellipse cx="7" cy="20" rx="5.5" ry="3.2" fill="#FF8FA3" stroke="none" opacity=".6"/><ellipse cx="53" cy="20" rx="5.5" ry="3.2" fill="#FF8FA3" stroke="none" opacity=".6"/>${eyes}${mouth}</svg>`;
+}
+function blobSVG(colVar,kind='happy',cls=''){
+  return `<svg class="blob ${cls}" viewBox="0 0 100 90" aria-hidden="true"><path d="M50 6 C78 4 95 26 93 52 C91 76 72 86 50 85 C26 86 7 76 7 52 C6 26 22 8 50 6Z" fill="var(${colVar})" stroke="var(--ink)" stroke-width="3.5" filter="url(#wobble)"/>
+  ${faceSVG(kind,'#282742').replace('<svg ','<svg x="20" y="36" width="60" height="32" ')}</svg>`;
+}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function cardHTML({hex,label='',cw=190,flipped=false,nameOnly=false,kind,id='',extra=''}){
+  const fg=hex&&isLight(hex)?'#282742':'#FFFFFF';
+  const inner=nameOnly?`<div class="swatch">${esc(label)}</div><div class="clabel"></div>`:
+    `<div class="swatch" style="background:${hex}">${kind?faceSVG(kind,fg):''}</div><div class="clabel">${esc(label)}</div>`;
+  return `<div class="ccard ${flipped?'flipped':''} ${nameOnly?'nameonly':''} ${extra}" ${id?`id="${id}"`:''} style="--cw:${cw}px"><div class="ccard-in">
+    <div class="face front">${inner}</div><div class="face back"><div class="back-q">?</div></div></div></div>`;
+}
+
+/* ---------- plumbing ---------- */
+const app=document.getElementById('app');
+let timers=[];
+function later(fn,ms){const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;timers.push(setTimeout(fn,reduced?Math.min(ms,60):ms));}
+let CUR='';
+function show(html){CUR='';timers.forEach(clearTimeout);timers=[];app.innerHTML=html;window.scrollTo(0,0);}
+const on=(sel,ev,fn)=>{const el=typeof sel==='string'?app.querySelector(sel):sel;if(el)el.addEventListener(ev,fn);return el;};
+const store={get(k,d){try{const v=localStorage.getItem('hugh:'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('hugh:'+k,JSON.stringify(v));}catch(e){}}};
+function seg(id,opts,val){return `<div class="seg" id="${id}" role="group">${opts.map(([v,t])=>`<button type="button" data-v="${v}" aria-pressed="${v===val}">${t}</button>`).join('')}</div>`;}
+function bindSeg(id,cb){const g=app.querySelector('#'+id);g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));cb(b.dataset.v);});}
+const VIEW_TEXT={look:'Card stays up',glimpse:'Glimpse (5 s)',flash:'Flash (2 s)',name:'Name only'};
+const VIEW_MS={glimpse:5000,flash:2000};
+
+/* ---------- colour picker ---------- */
+function mountPicker(root,onChange){
+  const hsv={h:Math.random()*360,s:0,v:0.6};
+  root.innerHTML=`<div class="sv" tabindex="0" role="slider" aria-label="Shade: left is pale, right is strong, up is bright"><div class="thumb"></div></div>
+    <div class="hue" tabindex="0" role="slider" aria-label="Hue"><div class="thumb"></div></div>`;
+  const sv=root.querySelector('.sv'),hue=root.querySelector('.hue'),st=sv.firstElementChild,ht=hue.firstElementChild;
+  function paint(){const hex=hsvHex(hsv);
+    sv.style.background=`linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,hsl(${hsv.h},100%,50%))`;
+    st.style.left=hsv.s*100+'%';st.style.top=(1-hsv.v)*100+'%';st.style.background=hex;
+    ht.style.left=hsv.h/360*100+'%';ht.style.background=`hsl(${hsv.h},100%,50%)`;onChange(hex);}
+  function drag(el,fn){el.addEventListener('pointerdown',e=>{e.preventDefault();el.focus();try{el.setPointerCapture(e.pointerId);}catch(_){}
+    const mv=ev=>{const r=el.getBoundingClientRect();fn(clamp((ev.clientX-r.left)/r.width),clamp((ev.clientY-r.top)/r.height));paint();};
+    const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);};
+    mv(e);el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);});}
+  drag(sv,(x,y)=>{hsv.s=x;hsv.v=1-y;});drag(hue,x=>{hsv.h=Math.min(x*360,359.9);});
+  sv.addEventListener('keydown',e=>{const k={ArrowLeft:[-.02,0],ArrowRight:[.02,0],ArrowUp:[0,.02],ArrowDown:[0,-.02]}[e.key];if(!k)return;e.preventDefault();hsv.s=clamp(hsv.s+k[0]);hsv.v=clamp(hsv.v+k[1]);paint();});
+  hue.addEventListener('keydown',e=>{const k={ArrowLeft:-2,ArrowRight:2,ArrowDown:-2,ArrowUp:2}[e.key];if(!k)return;e.preventDefault();hsv.h=(hsv.h+k+360)%360;paint();});
+  paint();
+  return {set(hex){Object.assign(hsv,rgbToHsv(hexToRgb(hex)));paint();}};
+}
+
+/* ---------- shared screens ---------- */
+function passScreen(name,colVar,line,go){
+  show(`<section class="sticker ink pass pop">${blobSVG(colVar,'wow')}<h2>Pass to ${esc(name)}</h2><p class="muted">${line}</p>
+    <button class="btn" id="go">I'm ${esc(name)}, let's go</button></section>`);
+  on('#go','click',go);app.querySelector('#go').focus();
+}
+/* one player matches one card. opts: {who, colVar, top, card:{hex,label}, view, button, onLock(hex)} */
+function matchScreen(o){
+  const nameOnly=o.view==='name';
+  show(`<div class="topbar"><span class="pill ${o.colVar==='--p1'?'p1':'p2'}">${esc(o.who)}</span><span class="pill">${o.top}</span></div>
+    <div class="duo">
+      <div>${cardHTML({hex:o.card.hex,label:o.card.label,kind:'idle',nameOnly,id:'tcard',extra:'cardin',cw:Math.min(190,Math.floor((innerWidth-60)/2))})}<div class="cap">The card</div><div class="timer" id="timer"></div></div>
+      <div>${cardHTML({hex:'#999999',label:'',id:'mine',cw:Math.min(190,Math.floor((innerWidth-60)/2))})}<div class="cap">Your mix</div><div class="timer"></div></div>
+    </div>
+    <div class="picker" id="picker"></div>
+    <div class="row c"><button class="btn" id="lock">${o.button||'Lock it in'}</button></div>`);
+  let cur='#999999';
+  const mine=app.querySelector('#mine .swatch');
+  mountPicker(app.querySelector('#picker'),hex=>{cur=hex;mine.style.background=hex;});
+  const ms=VIEW_MS[o.view];
+  if(ms){let left=Math.ceil(ms/1000);const t=app.querySelector('#timer');t.textContent=left+'…';
+    const tick=()=>{left--;if(left<=0){t.textContent='Card hidden. From memory!';app.querySelector('#tcard').classList.add('flipped');}else{t.textContent=left+'…';later(tick,1000);}};later(tick,1000);}
+  on('#lock','click',()=>o.onLock(cur));
+}
+
+/* ---------- home ---------- */
+function home(){
+  show(`<div class="logo" aria-label="Hugh"><span>H</span><span>u</span><span>g</span><span>h</span></div>
+  <p class="tag">a colour matching duel for two</p>
+  <section class="sticker ink online-box"><h3>Play on two phones</h3>
+    <p>One of you starts a room and the other joins with its four-letter code. You each play on your own phone, anywhere with internet.</p>
+    <div class="row"><button class="btn" id="host">Start a room</button><button class="btn plain" id="join">Join a room</button></div></section>
+  <p class="center muted">Or share one phone:</p>
+  <div class="modes">
+    <button class="mode sticker ink" id="m-vs"><div class="art">${blobSVG('--p1','happy')}${cardHTML({hex:'#F2A65A',cw:62,kind:'happy'})}${blobSVG('--p2','meh')}</div>
+      <h3>Colour Duel</h3><p>You both get the same card and mix it from scratch. Closest mix lands a hit. The bigger the gap, the harder it hurts.</p></button>
+    <button class="mode sticker ink" id="m-ex"><div class="art">${cardHTML({hex:'#7FC8A9',cw:58,kind:'love'})}${cardHTML({hex:'#B07CC6',cw:58,kind:'happy'})}${cardHTML({hex:'#F06C7E',cw:58,kind:'wow'})}</div>
+      <h3>Card Swap</h3><p>Each of you makes a little deck of colour cards for the other. Whoever matches the other's deck best wins.</p></button>
+  </div>
+  <div class="row c"><button class="link" id="open">Got a code from your partner? Open it here</button></div>
+  <div class="note sticker ink"><b>How close is close?</b><p>Hugh measures the gap between two colours with CIEDE2000 (ΔE), the colour-difference formula print shops use. A ΔE under about 2.3 is a difference most eyes can't see. A perfect match scores 100, ΔE 5 scores about 83, ΔE 10 about 63, and ΔE 20 about 32.</p></div>`);
+  on('#m-vs','click',vsSetup);on('#m-ex','click',exSetup);on('#open','click',()=>pasteScreen());
+  on('#host','click',()=>roomName(true));on('#join','click',()=>roomName(false));
+}
+
+/* ---------- Colour Duel ---------- */
+let VS;
+function vsSetup(){
+  const n=store.get('names',['','']);let hp=100,view='look';
+  show(`<h2>Colour Duel</h2><section class="sticker ink panel">
+    <div class="row"><label class="f">Player one<input type="text" id="n1" maxlength="18" placeholder="Player 1" value="${esc(n[0])}"></label>
+    <label class="f">Player two<input type="text" id="n2" maxlength="18" placeholder="Player 2" value="${esc(n[1])}"></label></div>
+    <div class="stack"><span class="seg-label">Hearts each</span>${seg('hp',[['60','60 (quick)'],['100','100'],['160','160 (long)']],'100')}</div>
+    <div class="stack"><span class="seg-label">How you see the card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['flash','Flash (2 s)']],'look')}
+    <p class="hint">Glimpse and Flash flip the card over after a few seconds, so you match from memory.</p></div>
+    <p class="hint">Damage is the gap between your two scores. From round 3 it's multiplied by 1.5, from round 5 by 2, up to 3. A match within ΔE 2 adds a 10 point bullseye bonus.</p>
+    <div class="row"><button class="btn" id="start">Start the duel</button><button class="link" id="back">Back</button></div></section>`);
+  bindSeg('hp',v=>hp=+v);bindSeg('view',v=>view=v);on('#back','click',home);
+  on('#start','click',()=>{const names=[app.querySelector('#n1').value.trim()||'Player 1',app.querySelector('#n2').value.trim()||'Player 2'];
+    store.set('names',[app.querySelector('#n1').value.trim(),app.querySelector('#n2').value.trim()]);
+    VS={names,hp:[hp,hp],max:hp,view,round:1,history:[]};vsRound();});
+}
+const mult=r=>Math.min(3,1+0.5*Math.floor((r-1)/2));
+const PV=['--p1','--p2'];
+function vsRound(){
+  const target=randomColour(),label=nameFor(target),first=(VS.round-1)%2,order=[first,1-first],picks=[null,null];
+  const top=`Round ${VS.round} · ×${mult(VS.round)}`;
+  const turn=i=>{const p=order[i];
+    passScreen(VS.names[p],PV[p],i===0?`${esc(VS.names[order[1]])}, look away. A new card is coming.`:`${esc(VS.names[order[0]])} has locked in. No peeking at their mix!`,()=>
+      matchScreen({who:VS.names[p],colVar:PV[p],top,card:{hex:target,label},view:VS.view,onLock:hex=>{picks[p]=hex;i===0?turn(1):vsReveal(target,label,picks);}}));};
+  turn(0);
+}
+function hpBar(p){const pct=Math.max(0,VS.hp[p]/VS.max*100);return `<div class="hp"><i id="hp${p}" style="width:${pct}%;background-color:var(${PV[p]})"></i></div><div class="hpnum" id="hpn${p}">${Math.max(0,Math.round(VS.hp[p]))} / ${VS.max}</div>`;}
+function vsReveal(target,label,picks){
+  const r=picks.map(p=>judge(target,p)),m=mult(VS.round);
+  const diff=r[0].score-r[1].score,win=Math.abs(diff)<0.05?-1:(diff>0?0:1);
+  let dmg=0,bull=false;if(win>=0){dmg=Math.max(1,Math.round(Math.abs(diff)*m));if(r[win].dE<2){dmg+=10;bull=true;}}
+  const cw=Math.min(150,Math.floor((innerWidth-80)/3));
+  const col=p=>`<div class="pcol"><div style="position:relative" id="bl${p}">${blobSVG(PV[p],'happy')}</div><div class="pname">${esc(VS.names[p])}</div>${hpBar(p)}
+    ${cardHTML({hex:picks[p],label:'',kind:mood(r[p].dE),flipped:true,id:'pc'+p,cw})}
+    <div class="score" id="sc${p}">–</div><div class="de" id="de${p}">&nbsp;</div><div class="verdict" id="vd${p}">&nbsp;</div></div>`;
+  show(`<div class="topbar"><span class="pill">Round ${VS.round} · ×${m}</span><span class="pill">${esc(label)}</span></div>
+    <div class="arena">${col(0)}<div class="pcol" style="padding-top:clamp(40px,10vw,120px)">${cardHTML({hex:target,label,kind:'wow',cw,extra:'cardin'})}<div class="cap">The card</div></div>${col(1)}</div>
+    <div id="out"></div>`);
+  const count=(el,to)=>{const t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/700);el.textContent=(to*k).toFixed(1);if(k<1)requestAnimationFrame(f);};requestAnimationFrame(f);};
+  [0,1].forEach(p=>later(()=>{app.querySelector('#pc'+p).classList.remove('flipped');
+    later(()=>{count(app.querySelector('#sc'+p),r[p].score);app.querySelector('#de'+p).textContent='ΔE '+r[p].dE.toFixed(1);app.querySelector('#vd'+p).textContent=verdict(r[p].dE);},500);},500+p*450));
+  later(()=>{
+    let msg;
+    if(win<0){msg=`<h3>A perfect tie!</h3><p>Nobody takes damage.</p>`;}
+    else{const lose=1-win;VS.hp[lose]-=dmg;
+      const bw=app.querySelector('#bl'+win+' .blob'),bl=app.querySelector('#bl'+lose+' .blob');bw.classList.add('win');bl.classList.add('hit');
+      app.querySelector('#bl'+lose).insertAdjacentHTML('beforeend',`<div class="dmg">−${dmg}</div>`);
+      app.querySelector('#hp'+lose).style.width=Math.max(0,VS.hp[lose]/VS.max*100)+'%';app.querySelector('#hpn'+lose).textContent=`${Math.max(0,Math.round(VS.hp[lose]))} / ${VS.max}`;
+      msg=`<h3>${esc(VS.names[win])} hits for ${dmg}!</h3><p>${bull?'Bullseye bonus +10. ':''}${r[win].score.toFixed(1)} vs ${r[lose].score.toFixed(1)}${m>1?`, ×${m} damage`:''}.</p>`;}
+    VS.history.push({target,picks,win});
+    const over=VS.hp.some(h=>h<=0);
+    app.querySelector('#out').innerHTML=`<div class="stack" style="align-items:center"><div class="sticker ink banner pop">${msg}</div>
+      <button class="btn" id="next">${over?'See who won':'Next round'}</button></div>`;
+    on('#next','click',()=>{if(VS.online){onlineNext(VS.round,over);return;}if(over)vsOver();else{VS.round++;vsRound();}});
+  },2600);
+}
+function confetti(){const cs=['#FF9E8A','#FFD966','#8FD6A8','#93C3F0','#C9A0E8','#FF8FA3'];
+  return `<div class="confetti" aria-hidden="true">${Array.from({length:26},(_,i)=>`<i style="left:${Math.random()*100}%;background:${cs[i%cs.length]};animation-delay:${(Math.random()*0.9).toFixed(2)}s"></i>`).join('')}</div>`;}
+function vsOver(){
+  const w=VS.hp[0]>VS.hp[1]?0:1;
+  show(`${confetti()}<section class="sticker ink pass pop">${blobSVG(PV[w],'love','win')}<h2>${esc(VS.names[w])} wins the duel!</h2>
+    <p class="muted">After ${VS.round} round${VS.round>1?'s':''}, with ${Math.max(0,Math.round(VS.hp[w]))} hearts left.</p>
+    <div class="hist">${VS.history.map((h,i)=>`<div class="hcell"><div class="tri" title="Round ${i+1}"><i style="background:${h.picks[0]}"></i><i style="background:${h.target}"></i><i style="background:${h.picks[1]}"></i></div>
+      <span>R${i+1} · ${h.win<0?'tie':esc(VS.names[h.win])}</span></div>`).join('')}</div>
+    <p class="hint">Each strip is ${esc(VS.names[0])}'s mix, the card, then ${esc(VS.names[1])}'s mix.</p>
+    <div class="row c">${VS.online?(NET.host?'<button class="btn" id="again">Rematch</button>':'')+'<button class="btn plain" id="room">Back to the room</button>':'<button class="btn" id="again">Rematch</button><button class="btn plain" id="home">Home</button>'}</div></section>`);
+  if(VS.online){on('#again','click',()=>hostStart(LOBBY.last));on('#room','click',lobby);return;}
+  on('#again','click',()=>{VS={...VS,hp:[VS.max,VS.max],round:1,history:[]};vsRound();});on('#home','click',home);
+}
+
+/* ---------- Card Swap ---------- */
+let EX;
+function exSetup(){
+  const n=store.get('names',['','']);let where='local',count=5,view='look';
+  show(`<h2>Card Swap</h2><section class="sticker ink panel">
+    <div class="stack"><span class="seg-label">Where are you playing?</span>${seg('where',[['local','Same device'],['remote','Send by message']],'local')}
+    <p class="hint" id="whereHint">Take turns on this device. Hugh hides each deck from the other player.</p></div>
+    <div class="row" id="namesRow"></div>
+    <div class="stack"><span class="seg-label">Cards per deck</span>${seg('count',[['3','3'],['5','5'],['7','7']],'5')}</div>
+    <div class="stack"><span class="seg-label">How the matcher sees each card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['name','Name only']],'look')}
+    <p class="hint">Name only is the tricky one: the matcher sees just the name you give the card, like “the inside of a ripe mango”, and has to imagine the colour.</p></div>
+    <div class="row"><button class="btn" id="start">Start making cards</button><button class="link" id="back">Back</button></div></section>`);
+  const names=()=>{app.querySelector('#namesRow').innerHTML=where==='local'?
+    `<label class="f">Player one<input type="text" id="n1" maxlength="18" placeholder="Player 1" value="${esc(n[0])}"></label><label class="f">Player two<input type="text" id="n2" maxlength="18" placeholder="Player 2" value="${esc(n[1])}"></label>`:
+    `<label class="f">Your name<input type="text" id="n1" maxlength="18" placeholder="Your name" value="${esc(store.get('me',''))}"></label><label class="f">Your partner's name<input type="text" id="n2" maxlength="18" placeholder="Partner" value="${esc(store.get('them',''))}"></label>`;};
+  names();
+  bindSeg('where',v=>{const a=app.querySelector('#n1').value,b=app.querySelector('#n2').value;where=v;names();
+    app.querySelector('#whereHint').textContent=v==='local'?'Take turns on this device. Hugh hides each deck from the other player.':'Make your deck here, then send your partner a code by text or chat. They open Hugh, paste it, play your cards and send a code back with their deck.';
+    if(v==='local'){app.querySelector('#n1').value=n[0];app.querySelector('#n2').value=n[1];}});
+  bindSeg('count',v=>count=+v);bindSeg('view',v=>view=v);on('#back','click',home);
+  on('#start','click',()=>{const a=app.querySelector('#n1').value.trim(),b=app.querySelector('#n2').value.trim();
+    if(where==='local'){store.set('names',[a,b]);EX={names:[a||'Player 1',b||'Player 2'],count,view,decks:[null,null],picks:[null,null]};
+      passScreen(EX.names[0],'--p1',`${esc(EX.names[1])}, look away while ${esc(EX.names[0])} makes your cards.`,()=>createDeck(EX.names[0],EX.names[1],'--p1',count,view,deck=>{EX.decks[0]=deck;
+        passScreen(EX.names[1],'--p2',`${esc(EX.names[0])}, look away while ${esc(EX.names[1])} makes your cards.`,()=>createDeck(EX.names[1],EX.names[0],'--p2',count,view,deck2=>{EX.decks[1]=deck2;exLocalPlay(0);}));}));}
+    else{store.set('me',a);store.set('them',b);const me=a||'Me',them=b||'my partner';
+      createDeck(me,them,'--p1',count,view,deck=>codeScreen(encode({t:'deck',from:me,to:them,view,cards:deck}),`Your deck for ${esc(them)} is ready`,`Send this code to ${esc(them)}. They open Hugh, tap “Got a code from your partner?”, and paste it. They'll send you one back with their deck.`));}
+  });
+}
+/* make a deck: returns [{hex,name}] */
+function createDeck(maker,forWho,colVar,count,view,done){
+  const deck=Array.from({length:count},()=>null);let i=0,cur='#999999',picker;
+  show(`<div class="topbar"><span class="pill ${colVar==='--p1'?'p1':'p2'}">${esc(maker)}</span><span class="pill" id="prog"></span></div>
+    <h2>Make cards for ${esc(forWho)}</h2>
+    <p class="muted">${view==='name'?`${esc(forWho)} will only see the name, so describe the colour well.`:`${esc(forWho)} will see the card and its name, ${VIEW_TEXT[view].toLowerCase()}.`}</p>
+    <div class="duo"><div>${cardHTML({hex:cur,label:'',id:'mk',cw:Math.min(200,innerWidth-80)})}</div></div>
+    <div class="picker"><label class="f">Card name<div class="row" style="flex-wrap:nowrap"><input type="text" id="cname" maxlength="32" placeholder="${view==='name'?'e.g. inside of a ripe mango':'e.g. grandma\'s teacup'}"><button class="btn small plain" id="dice" title="Suggest a name">Suggest</button></div></label>
+    <div id="picker" class="stack"></div><div class="thumbs" id="thumbs"></div>
+    <div class="row c"><button class="btn plain small" id="rand">Surprise me</button><button class="btn" id="save"></button></div></div>`);
+  const sw=app.querySelector('#mk .swatch'),lab=app.querySelector('#mk .clabel'),nm=app.querySelector('#cname');
+  picker=mountPicker(app.querySelector('#picker'),hex=>{cur=hex;sw.style.background=hex;});
+  nm.addEventListener('input',()=>lab.textContent=nm.value);
+  const sync=()=>{app.querySelector('#prog').textContent=`Card ${i+1} of ${count}`;
+    app.querySelector('#thumbs').innerHTML=deck.map((c,j)=>`<button type="button" data-j="${j}" class="${j===i?'on':''}" style="${c?`background:${c.hex}`:''}" aria-label="Card ${j+1}">${c?'':j+1}</button>`).join('');
+    const filled=deck.filter(Boolean).length+(deck[i]?0:1);app.querySelector('#save').textContent=filled>=count&&deck.every((c,j)=>c||j===i)?'Deck done':'Save card';};
+  const load=j=>{i=j;const c=deck[j];if(c){picker.set(c.hex);nm.value=c.name;}else{nm.value='';}lab.textContent=nm.value;sync();};
+  const commit=()=>{let name=nm.value.trim();if(!name)name=nameFor(cur);deck[i]={hex:cur,name};};
+  on('#thumbs','click',e=>{const b=e.target.closest('button');if(!b)return;commit();load(+b.dataset.j);});
+  on('#dice','click',()=>{nm.value=nameFor(cur);lab.textContent=nm.value;});
+  on('#rand','click',()=>{picker.set(randomColour());});
+  on('#save','click',()=>{commit();const next=deck.findIndex(c=>!c);if(next<0)done(deck);else load(next);});
+  sync();
+}
+/* play someone's deck: returns results [{t,n,p}] */
+function playDeck(player,colVar,deck,maker,view,done){
+  const res=[];
+  const step=k=>matchScreen({who:player,colVar,top:`${esc(maker)}'s card ${k+1} of ${deck.length}`,card:{hex:deck[k].hex,label:deck[k].name},view,button:k<deck.length-1?'Lock it in, next card':'Lock in the last one',
+    onLock:hex=>{res.push({t:deck[k].hex,n:deck[k].name,p:hex});k+1<deck.length?step(k+1):done(res);}});
+  step(0);
+}
+function exLocalPlay(p){
+  const other=1-p;
+  passScreen(EX.names[p],PV[p],`${esc(EX.names[other])} made you ${EX.count} cards. ${esc(EX.names[other])}, don't help!`,()=>
+    playDeck(EX.names[p],PV[p],EX.decks[other],EX.names[other],EX.view,res=>{EX.picks[p]=res;
+      if(p===0)exLocalPlay(1);else exReveal([{name:EX.names[0],res:EX.picks[0]},{name:EX.names[1],res:EX.picks[1]}],()=>{EX.picks=[null,null];exSetup();});}));
+}
+function tally(res){const rows=res.map(r=>({...r,...judge(r.t,r.p)}));return {rows,total:rows.reduce((a,r)=>a+r.score,0),nailed:rows.filter(r=>r.score>=NAILED).length};}
+function exReveal(players,again,extraHTML=''){
+  const T=players.map(p=>tally(p.res));
+  let w=T[0].total>T[1].total+0.05?0:T[1].total>T[0].total+0.05?1:-1;
+  if(w<0&&T[0].nailed!==T[1].nailed)w=T[0].nailed>T[1].nailed?0:1;
+  const max=players[0].res.length*100;
+  show(`${w>=0?confetti():''}<div class="sticker ink banner pop">${w>=0?`<h3>${esc(players[w].name)} wins the swap!</h3>`:'<h3>Dead heat!</h3>'}
+    <p>${players.map((p,i)=>`${esc(p.name)} ${T[i].total.toFixed(1)}`).join(' vs ')} (out of ${max}).</p></div>
+    <div class="cols">${players.map((p,i)=>`<section class="sticker ink xcol">
+      <div class="row" style="justify-content:space-between">${blobSVG(PV[i],i===w?'love':w<0?'happy':'sad',i===w?'win':'')}<div style="text-align:right"><div class="pname">${esc(p.name)}</div>
+      <div class="score">${T[i].total.toFixed(1)}</div><div class="de">${T[i].nailed} of ${p.res.length} nailed (${NAILED}+)</div></div></div>
+      ${T[i].rows.map((r,k)=>`<div class="xrow cardin" style="animation-delay:${0.3+k*0.18}s"><div class="duo2"><div class="mini" style="background:${r.t}" title="The card"></div><div class="mini" style="background:${r.p}" title="${esc(p.name)}'s mix"></div></div>
+        <div class="xname">${esc(r.n)}<br><span class="de">ΔE ${r.dE.toFixed(1)} · ${verdict(r.dE)}</span></div><div class="xscore">${r.score.toFixed(1)}</div></div>`).join('')}
+    </section>`).join('')}</div>
+    <p class="hint center">In each row the left square is the card and the right one is the mix. Winner has the highest total; a tie goes to whoever nailed more cards.</p>
+    ${extraHTML}
+    <div class="row c">${again?'<button class="btn" id="again">Swap again</button>':''}${players.online?'<button class="btn plain" id="room">Back to the room</button>':'<button class="btn plain" id="home">Home</button>'}</div>`);
+  if(again)on('#again','click',again);on('#home','click',home);on('#room','click',lobby);
+}
+
+/* ---------- codes for sending by message ---------- */
+function encode(o){const s=btoa(unescape(encodeURIComponent(JSON.stringify(o))));return 'HUGH-'+s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function decode(txt){const m=String(txt).match(/HUGH-([A-Za-z0-9_-]+)/);if(!m)throw new Error('none');let s=m[1].replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
+  const o=JSON.parse(decodeURIComponent(escape(atob(s))));if(!o||!o.t)throw new Error('bad');return o;}
+const hexOk=h=>/^#[0-9a-f]{6}$/i.test(h);
+function codeScreen(code,title,line,after=''){
+  show(`<h2>${title}</h2><section class="sticker ink panel"><p>${line}</p>
+    <textarea id="code" readonly aria-label="Code to send">${esc(code)}</textarea>
+    <div class="row"><button class="btn" id="copy">Copy code</button><span id="copied" class="muted"></span></div>
+    <p class="hint">Your partner needs the link to this Hugh page too. The code holds the colours, so don't peek at it in a decoder.</p></section>${after}
+    <div class="row c"><button class="btn plain" id="home">Home</button></div>`);
+  on('#copy','click',()=>{const ta=app.querySelector('#code');const sel=()=>{ta.focus();ta.select();app.querySelector('#copied').textContent='Selected. Copy it with your keyboard or long-press.';};
+    try{navigator.clipboard.writeText(code).then(()=>app.querySelector('#copied').textContent='Copied!',sel);}catch(e){sel();}});
+  on('#home','click',home);
+}
+function pasteScreen(err=''){
+  show(`<h2>Open a code</h2><section class="sticker ink panel"><p>Paste the whole message your partner sent. Hugh finds the code inside it.</p>
+    <textarea id="paste" placeholder="HUGH-…" aria-label="Paste code"></textarea>
+    <label class="f">Your name<input type="text" id="me" maxlength="18" placeholder="Your name" value="${esc(store.get('me',''))}"></label>
+    ${err?`<p class="err">${err}</p>`:''}
+    <div class="row"><button class="btn" id="openc">Open</button><button class="link" id="back">Back</button></div></section>`);
+  on('#back','click',home);
+  on('#openc','click',()=>{let o;try{o=decode(app.querySelector('#paste').value);}catch(e){pasteScreen('That doesn\'t look like a Hugh code. It starts with HUGH- and should be pasted in full.');return;}
+    const me=app.querySelector('#me').value.trim();store.set('me',me);openCode(o,me||'Me');});
+}
+function validCards(c){return Array.isArray(c)&&c.length>0&&c.length<=12&&c.every(x=>x&&hexOk(x.hex));}
+function validRes(r){return Array.isArray(r)&&r.every(x=>x&&hexOk(x.t)&&hexOk(x.p));}
+function openCode(o,me){
+  if(o.t==='final'&&validRes(o.a?.res)&&validRes(o.b?.res)){exReveal([o.a,o.b]);return;}
+  if(o.t!=='deck'||!validCards(o.cards)||(o.reply&&!validRes(o.reply.res))){pasteScreen('That code is damaged or from a different game. Ask for it again.');return;}
+  const view=VIEW_TEXT[o.view]?o.view:'look',them=String(o.from||'Partner').slice(0,18);store.set('them',them);
+  passScreen(me,'--p2',`${esc(them)} made you ${o.cards.length} card${o.cards.length>1?'s':''}. Ready?`,()=>
+    playDeck(me,'--p2',o.cards,them,view,res=>{
+      if(o.reply){ // they already played my deck: this finishes the swap
+        const players=[{name:them,res:o.reply.res},{name:me,res}];
+        const fin=encode({t:'final',a:players[0],b:players[1]});
+        exReveal(players,null,`<section class="sticker ink panel"><p>Send ${esc(them)} this final code so they can see the result too.</p><textarea readonly id="code">${esc(fin)}</textarea><div class="row"><button class="btn small" id="copy">Copy code</button><span id="copied" class="muted"></span></div></section>`);
+        on('#copy','click',()=>{const ta=app.querySelector('#code');try{navigator.clipboard.writeText(fin).then(()=>app.querySelector('#copied').textContent='Copied!',()=>{ta.select();});}catch(e){ta.select();}});
+      }else{
+        const t=tally(res);
+        show(`<section class="sticker ink pass pop">${blobSVG('--p2',(t.total/res.length>85?'love':t.total/res.length>60?'happy':'meh'))}<h2>You scored ${t.total.toFixed(1)}</h2>
+          <p class="muted">${t.nailed} of ${res.length} nailed. ${esc(them)} won't see this until they've played your deck.</p>
+          <button class="btn" id="mk">Now make ${res.length} cards for ${esc(them)}</button></section>`);
+        on('#mk','click',()=>createDeck(me,them,'--p2',res.length,view,deck=>codeScreen(encode({t:'deck',from:me,to:them,view,cards:deck,reply:{name:me,res}}),
+          `Your deck for ${esc(them)} is ready`,`Send this code back to ${esc(them)}. It has your cards and your score on theirs. When they've played your deck, Hugh shows who won.`)));
+      }
+    }));
+}
+
+/* ---------- two phones: rooms over PeerJS, the same pairing Paddle Draft uses ----------
+   The room code is the host phone's address on PeerJS's free public broker. Once the
+   phones find each other, everything goes straight from phone to phone (WebRTC).
+   The host phone deals the cards and decides each round; both phones draw the same screens. */
+const PEER_PREFIX='huematchme-r5t8-';
+const peerOpts=()=>Object.assign({debug:0},window.HUGH_PEER_SERVER||{});
+const NET={peer:null,conn:null,host:false,code:null,me:'',them:'',outbox:{},rejoin:null,active:false,seen:new Set()};
+const LOBBY={opts:{mode:'duel',hp:100,view:'look',count:5,sview:'look'},last:null};
+let OG=null;
+const ME=()=>NET.host?0:1;
+const netEl=document.createElement('div');netEl.id='net';netEl.hidden=true;netEl.setAttribute('role','status');document.body.insertBefore(netEl,app);
+function netStatus(){
+  if(!NET.active){netEl.hidden=true;document.body.classList.remove('online');return;}
+  netEl.hidden=false;document.body.classList.add('online');
+  const up=!!(NET.conn&&NET.conn.open);netEl.classList.toggle('lost',!up);
+  netEl.textContent=up?`● Room ${NET.code} · with ${NET.them||'partner'}`:(NET.host&&!NET.them?`● Room ${NET.code} · waiting for partner`:`● Room ${NET.code} · reconnecting…`);
+}
+const libs={};
+function loadScript(src){if(!libs[src])libs[src]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>{delete libs[src];rej(new Error('load'));};document.head.appendChild(s);});return libs[src];}
+const LETTERS='ABCDEFGHJKMNPQRSTUVWXYZ';
+const newCode=()=>Array.from({length:4},()=>LETTERS[Math.floor(Math.random()*LETTERS.length)]).join('');
+function raw(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(JSON.stringify(m));}catch(e){}}}
+// Every game message is kept in an outbox and sent again after a reconnect; both phones ignore repeats.
+function send(key,m){NET.outbox[key]=m;raw(m);}
+function wireConn(conn){
+  conn.on('open',()=>{
+    if(NET.conn&&NET.conn!==conn){try{NET.conn.close();}catch(e){}}
+    NET.conn=conn;raw({t:'hello',name:NET.me});Object.values(NET.outbox).forEach(raw);
+    keepAwake();netStatus();if(CUR==='lobby')lobby();
+  });
+  conn.on('data',d=>{let m;try{m=typeof d==='string'?JSON.parse(d):d;}catch(e){return;}if(m&&typeof m==='object')onMsg(m);});
+  conn.on('close',()=>{if(NET.conn===conn){NET.conn=null;netStatus();if(CUR==='lobby')lobby();scheduleRejoin();}});
+  conn.on('error',()=>{});
+}
+async function hostRoom(){
+  NET.host=true;NET.active=true;if(!NET.code)NET.code=newCode();netStatus();
+  try{await loadScript('vendor/peerjs.min.js');}catch(e){netEl.textContent='● Couldn\'t load the connection code. Check your internet.';netEl.classList.add('lost');return;}
+  if(!NET.active||!NET.host)return;
+  if(NET.peer){try{NET.peer.destroy();}catch(e){}}
+  const p=new Peer(PEER_PREFIX+NET.code,peerOpts());NET.peer=p;
+  p.on('open',()=>netStatus());
+  p.on('connection',conn=>wireConn(conn));
+  p.on('disconnected',()=>setTimeout(()=>{if(NET.peer===p&&!p.destroyed){try{p.reconnect();}catch(e){}}},3000));
+  p.on('error',e=>{
+    if(NET.peer!==p||e.type==='peer-unavailable')return;
+    // The code can stay taken for a few seconds after a reload. Before anyone joins, just pick a new one.
+    if(e.type==='unavailable-id'&&!NET.them){NET.code=newCode();if(CUR==='lobby')lobby();}
+    setTimeout(()=>{if(NET.peer===p&&NET.active){try{p.destroy();}catch(x){}NET.peer=null;hostRoom();}},e.type==='unavailable-id'&&!NET.them?200:4000);
+  });
+}
+function joinRoom(code){
+  return loadScript('vendor/peerjs.min.js').then(()=>new Promise(res=>{
+    if(NET.peer){try{NET.peer.destroy();}catch(e){}}
+    const p=new Peer(peerOpts());NET.peer=p;let done=false;
+    const fin=msg=>{if(done)return;done=true;clearTimeout(t);if(msg){try{p.destroy();}catch(e){}if(NET.peer===p)NET.peer=null;}res(msg||null);};
+    const t=setTimeout(()=>fin(`Couldn't reach room ${code}. Check the code, and ask your partner to keep Hugh open on their screen.`),20000);
+    p.on('error',e=>fin(e.type==='peer-unavailable'?`Can't find room ${code}. Check the code, and ask your partner to keep Hugh open on their screen.`:'Couldn\'t connect. Check your internet and try again.'));
+    p.on('open',()=>{const conn=p.connect(PEER_PREFIX+code,{serialization:'raw',reliable:true});wireConn(conn);conn.on('open',()=>fin(null));});
+  }),()=>'Couldn\'t load the connection code. Check your internet and try again.');
+}
+function scheduleRejoin(){
+  if(NET.host||!NET.active||NET.rejoin)return;
+  NET.rejoin=setTimeout(async()=>{const err=await joinRoom(NET.code);NET.rejoin=null;netStatus();if(err&&NET.active&&!(NET.conn&&NET.conn.open))scheduleRejoin();},2500);
+}
+function leaveRoom(){
+  raw({t:'leave'});NET.active=false;clearTimeout(NET.rejoin);NET.rejoin=null;
+  const c=NET.conn,p=NET.peer;NET.conn=null;NET.peer=null;OG=null;NET.them='';NET.outbox={};
+  setTimeout(()=>{try{c&&c.close();}catch(e){}try{p&&p.destroy();}catch(e){}},300);
+  netStatus();home();
+}
+let wake=null;
+async function keepAwake(){try{if('wakeLock' in navigator&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null;});}}catch(e){}}
+// Phones pause the page when you switch apps, which can drop the link. Coming back, reconnect quietly.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!NET.active)return;keepAwake();
+  if(NET.host){if(!NET.peer||NET.peer.destroyed)hostRoom();else if(NET.peer.disconnected){try{NET.peer.reconnect();}catch(e){}}}
+  else if(!(NET.conn&&NET.conn.open))scheduleRejoin();
+});
+setInterval(()=>{if(document.visibilityState==='visible'&&NET.active&&!NET.host&&!(NET.conn&&NET.conn.open))scheduleRejoin();},6000);
+
+function onMsg(m){
+  if(m.t==='hello'){NET.them=String(m.name||'Partner').slice(0,18);netStatus();if(CUR==='lobby')lobby();return;}
+  if(m.t==='leave'){const who=NET.them||'Your partner';
+    if(NET.host){NET.them='';OG=null;NET.outbox={};try{NET.conn&&NET.conn.close();}catch(e){}NET.conn=null;netStatus();lobby();}
+    else{NET.active=false;try{NET.conn&&NET.conn.close();}catch(e){}try{NET.peer&&NET.peer.destroy();}catch(e){}NET.conn=null;NET.peer=null;OG=null;netStatus();home();}
+    toast(`${who} left the room.`);return;}
+  if(m.t==='start'){if(!NET.host)beginGame(m);return;}
+  if(!OG||m.gid!==OG.gid)return;
+  if(OG.mode==='duel')duelMsg(m);else swapMsg(m);
+}
+function toast(text){const t=document.createElement('div');t.className='sticker ink banner pop';t.style.cssText='position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px)';t.textContent=text;document.body.appendChild(t);setTimeout(()=>t.remove(),3500);}
+
+/* screens */
+function roomName(host,err=''){
+  show(`<h2>${host?'Start a room':'Join a room'}</h2><section class="sticker ink panel">
+    <label class="f">Your name<input type="text" id="me" maxlength="18" placeholder="Your name" autocomplete="nickname" value="${esc(store.get('me',''))}"></label>
+    ${host?'<p class="hint">You get a four-letter code to give your partner.</p>':'<label class="f">Room code<input type="text" class="code" id="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>'}
+    <p class="err" id="err">${err}</p>
+    <div class="row"><button class="btn" id="go">${host?'Open the room':'Join'}</button><button class="link" id="back">Back</button></div></section>`);
+  on('#back','click',home);
+  on('#go','click',async()=>{
+    const me=app.querySelector('#me').value.trim(),e=app.querySelector('#err');
+    if(!me){e.textContent='Add your name so your partner knows who they are playing.';return;}
+    store.set('me',me);NET.me=me;
+    if(NET.active)leaveRoomQuiet();
+    NET.outbox={};NET.them='';OG=null;
+    if(host){NET.code=null;hostRoom();lobby();return;}
+    const code=app.querySelector('#code').value.toUpperCase().replace(/[^A-Z]/g,'');
+    if(code.length!==4){e.textContent='Room codes are 4 letters.';return;}
+    const b=app.querySelector('#go');b.disabled=true;b.textContent='Joining…';e.textContent='';
+    NET.host=false;NET.code=code;
+    const msg=await joinRoom(code);
+    if(msg){b.disabled=false;b.textContent='Join';e.textContent=msg;return;}
+    NET.active=true;netStatus();keepAwake();if(!OG)lobby();
+  });
+}
+function leaveRoomQuiet(){raw({t:'leave'});NET.active=false;try{NET.conn&&NET.conn.close();}catch(e){}try{NET.peer&&NET.peer.destroy();}catch(e){}NET.conn=null;NET.peer=null;netStatus();}
+function lobby(){
+  const up=!!(NET.conn&&NET.conn.open),o=LOBBY.opts;
+  if(NET.host){
+    show(`<h2 class="center">Your room</h2><div class="roomcode" aria-label="Room code ${NET.code}">${[...NET.code].map(c=>`<span>${c}</span>`).join('')}</div>
+      <p class="center">Your partner opens Hugh on their phone, taps <b>Join a room</b> and types this code.</p>
+      <div class="row c">${NET.them?`${blobSVG('--p2',up?'love':'meh')}<h3>${esc(NET.them)} ${up?'is here!':'is reconnecting…'}</h3>`:`${blobSVG('--p2','meh','waitblob')}<h3 class="muted">Waiting for your partner…</h3>`}</div>
+      <section class="sticker ink panel"><div class="stack"><span class="seg-label">Game</span>${seg('mode',[['duel','Colour Duel'],['swap','Card Swap']],o.mode)}</div>
+        <div id="opts" class="stack"></div>
+        <div class="row"><button class="btn" id="start" ${up&&NET.them?'':'disabled'}>Start on both phones</button></div></section>
+      <div class="row c"><button class="link" id="leave">Close the room</button><button class="link" id="home">Home</button></div>`);
+    const opts=()=>{
+      app.querySelector('#opts').innerHTML=o.mode==='duel'?
+        `<div class="stack"><span class="seg-label">Hearts each</span>${seg('hp',[['60','60 (quick)'],['100','100'],['160','160 (long)']],String(o.hp))}</div>
+         <div class="stack"><span class="seg-label">How you see the card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['flash','Flash (2 s)']],o.view)}</div>
+         <p class="hint">You both get the same card at the same time. Closest mix hits for the gap between your scores.</p>`:
+        `<div class="stack"><span class="seg-label">Cards per deck</span>${seg('count',[['3','3'],['5','5'],['7','7']],String(o.count))}</div>
+         <div class="stack"><span class="seg-label">How the matcher sees each card</span>${seg('sview',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['name','Name only']],o.sview)}</div>
+         <p class="hint">You each make a deck at the same time, then play each other's. Best total wins.</p>`;
+      if(o.mode==='duel'){bindSeg('hp',v=>o.hp=+v);bindSeg('view',v=>o.view=v);}else{bindSeg('count',v=>o.count=+v);bindSeg('sview',v=>o.sview=v);}
+    };
+    opts();bindSeg('mode',v=>{o.mode=v;opts();});
+    on('#start','click',()=>hostStart({...o}));
+  }else{
+    show(`<section class="sticker ink pass pop">${blobSVG('--p2','happy','waitblob')}<h2>You're in room ${esc(NET.code)}</h2>
+      <p class="muted">${esc(NET.them||'Your partner')} picks the game. It starts on both phones at once.</p>
+      <div class="row c"><button class="link" id="leave">Leave the room</button><button class="link" id="home">Home</button></div></section>`);
+  }
+  CUR='lobby';on('#leave','click',leaveRoom);on('#home','click',home);
+}
+function waitScreen(text,hex){
+  show(`<section class="sticker ink pass pop">${hex?cardHTML({hex,cw:120,kind:'happy'}):blobSVG(PV[ME()],'happy','waitblob')}<h2>${text}</h2>
+    <p class="muted">Keep Hugh open. It moves on by itself.</p></section>`);
+}
+function hostStart(o){
+  LOBBY.last=o;NET.outbox={};
+  const m={t:'start',gid:Math.random().toString(36).slice(2,10),mode:o.mode,opts:o,names:[NET.me,NET.them||'Partner']};
+  send('start',m);beginGame(m);
+}
+function beginGame(m){
+  if(!m.gid||NET.seen.has(m.gid))return;NET.seen.add(m.gid);
+  if(!NET.host){NET.outbox={};LOBBY.last=m.opts;}
+  const o=m.opts||{},names=(Array.isArray(m.names)?m.names:[]).slice(0,2).map((n,i)=>String(n||'Player '+(i+1)).slice(0,18));
+  if(names.length<2)names.push('Partner');
+  if(m.mode==='swap'){
+    const count=[3,5,7].includes(+o.count)?+o.count:5,view=['look','glimpse','name'].includes(o.sview)?o.sview:'look';
+    const g=OG={gid:m.gid,mode:'swap',names,count,view,myDeck:null,theirDeck:null,myRes:null,theirRes:null,playing:false,shown:false};
+    const me=ME();
+    createDeck(names[me],names[1-me],PV[me],count,view,deck=>{if(OG!==g)return;g.myDeck=deck;send('deck',{t:'deck',gid:g.gid,cards:deck});swapAdvance();});
+  }else{
+    const hp=[60,100,160].includes(+o.hp)?+o.hp:100,view=['look','glimpse','flash'].includes(o.view)?o.view:'look';
+    OG={gid:m.gid,mode:'duel'};
+    VS={names,hp:[hp,hp],max:hp,view,round:0,history:[],online:true,picks:[null,null],revealed:{},ready:{},cur:null};
+    if(NET.host)startRoundOnline(1);else waitScreen('Dealing the first card…');
+  }
+}
+/* duel */
+function startRoundOnline(r){
+  const target=randomColour();
+  send('round',{t:'round',gid:OG.gid,round:r,target,label:nameFor(target)});showRoundOnline(NET.outbox.round);
+}
+function showRoundOnline(m){
+  if(!(m.round>VS.round)||!hexOk(m.target))return;
+  VS.round=m.round;VS.cur=m;VS.picks=[null,null];
+  const me=ME(),g=OG;
+  matchScreen({who:VS.names[me],colVar:PV[me],top:`Round ${m.round} · ×${mult(m.round)}`,card:{hex:m.target,label:String(m.label||'')},view:VS.view,
+    onLock:hex=>{if(OG!==g||VS.round!==m.round||VS.picks[me])return;VS.picks[me]=hex;
+      send('pick',{t:'pick',gid:g.gid,round:m.round,hex});
+      waitScreen(`Locked in! Waiting for ${esc(VS.names[1-me])}…`,hex);tryReveal();}});
+}
+function tryReveal(){
+  if(!NET.host||!VS.picks[0]||!VS.picks[1]||VS.revealed[VS.round])return;
+  send('reveal',{t:'reveal',gid:OG.gid,round:VS.round,picks:VS.picks.slice()});doReveal(VS.round,VS.picks.slice());
+}
+function doReveal(r,picks){if(VS.revealed[r]||r!==VS.round)return;VS.revealed[r]=true;vsReveal(VS.cur.target,VS.cur.label,picks);}
+function onlineNext(r,over){
+  if(over){vsOver();return;}
+  const me=ME();(VS.ready[r]=VS.ready[r]||{})[me]=true;
+  if(NET.host)hostMaybeNext(r);else{send('next',{t:'next',gid:OG.gid,round:r});if(VS.round===r)waitScreen(`Waiting for ${esc(VS.names[0])} to be ready…`);}
+}
+function hostMaybeNext(r){
+  if(r!==VS.round)return;const rd=VS.ready[r]||{};
+  if(rd[0]&&rd[1])startRoundOnline(r+1);else if(rd[0])waitScreen(`Waiting for ${esc(VS.names[1])} to be ready…`);
+}
+function duelMsg(m){
+  if(m.t==='round'&&!NET.host)showRoundOnline(m);
+  else if(m.t==='pick'&&NET.host&&m.round===VS.round&&hexOk(m.hex)&&!VS.picks[1]){VS.picks[1]=m.hex;tryReveal();}
+  else if(m.t==='reveal'&&!NET.host&&Array.isArray(m.picks)&&m.picks.length===2&&m.picks.every(hexOk))doReveal(m.round,m.picks);
+  else if(m.t==='next'&&NET.host&&typeof m.round==='number'){(VS.ready[m.round]=VS.ready[m.round]||{})[1]=true;
+    const rd=VS.ready[m.round];if(rd[0])hostMaybeNext(m.round);else if(m.round===VS.round)toast(`${VS.names[1]} is ready for the next card.`);}
+}
+/* swap */
+function swapAdvance(){
+  const g=OG,me=ME(),them=1-me,tn=esc(g.names[them]);
+  if(g.myRes&&g.theirRes){if(g.shown)return;g.shown=true;
+    const res=[];res[me]=g.myRes;res[them]=g.theirRes;
+    const players=[{name:g.names[0],res:res[0]},{name:g.names[1],res:res[1]}];players.online=true;
+    exReveal(players,NET.host?()=>hostStart(LOBBY.last):null);return;}
+  if(g.myRes){waitScreen(`All done! Waiting for ${tn} to finish your cards…`);return;}
+  if(g.myDeck&&g.theirDeck&&!g.playing){g.playing=true;
+    playDeck(g.names[me],PV[me],g.theirDeck,g.names[them],g.view,res=>{if(OG!==g)return;g.myRes=res;send('res',{t:'res',gid:g.gid,res});swapAdvance();});return;}
+  if(g.myDeck&&!g.theirDeck)waitScreen(`Deck sent! Waiting for ${tn} to finish making your cards…`);
+}
+function swapMsg(m){
+  if(m.t==='deck'&&!OG.theirDeck&&validCards(m.cards)){OG.theirDeck=m.cards.map(c=>({hex:c.hex,name:String(c.name||'').slice(0,32)}));if(OG.myDeck&&!OG.playing)swapAdvance();}
+  else if(m.t==='res'&&!OG.theirRes&&validRes(m.res)){OG.theirRes=m.res;if(OG.myRes)swapAdvance();}
+}
+/* home shows the room you're in */
+const homeBase=home;
+home=function(){homeBase();if(!NET.active)return;const box=app.querySelector('.online-box');
+  box.innerHTML=`<h3>You're in room ${esc(NET.code)}</h3><p>${NET.them?`Playing with ${esc(NET.them)}.`:'Waiting for your partner to join.'}</p>
+    <div class="row"><button class="btn" id="toroom">Back to the room</button><button class="btn plain" id="leave">Leave the room</button></div>`;
+  on('#toroom','click',lobby);on('#leave','click',leaveRoom);};
+
+const start=()=>home();
+start();
+})();
+</script>
+</body>
+</html>
