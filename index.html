@@ -66,6 +66,18 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 .online-box{padding:20px 22px;display:flex;flex-direction:column;gap:12px}
 .online-box h3{font-size:30px}
 .waitblob{animation:hop 1.2s infinite}
+.sticker.hurry{display:flex;flex-direction:column;gap:6px;padding:10px 16px 12px;background:var(--hi);text-align:center;transform:rotate(-.6deg)}
+.hurry b{font-family:var(--display);font-size:24px}
+.hurry .hbar{height:12px;border:2.5px solid var(--ink);border-radius:8px;overflow:hidden;background:var(--card)}
+.hurry .hbar i{display:block;height:100%;background:var(--ink);transition:width .25s linear}
+.hurry.urgent{animation:hit .5s infinite}
+.hurry.urgent .hbar i{background:var(--bad)}
+.solo-arena{display:flex;justify-content:center;gap:clamp(14px,4vw,40px);align-items:flex-start}
+.solo-arena > div{display:flex;flex-direction:column;align-items:center;gap:6px}
+.statrow{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.stat{padding:8px 16px 10px;text-align:center;min-width:110px}
+.stat b{display:block;font-family:var(--display);font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:15px;color:var(--ink-soft)}
 #app{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;line-height:1.05;text-wrap:balance}
 h2{font-size:clamp(30px,6vw,44px)}
@@ -348,6 +360,7 @@ function passScreen(name,colVar,line,go){
 function matchScreen(o){
   const nameOnly=o.view==='name';
   show(`<div class="topbar"><span class="pill ${o.colVar==='--p1'?'p1':'p2'}">${esc(o.who)}</span><span class="pill">${o.top}</span></div>
+    <div id="hurry" class="sticker ink hurry" hidden role="timer"></div>
     <div class="duo">
       <div>${cardHTML({hex:o.card.hex,label:o.card.label,kind:'idle',nameOnly,id:'tcard',extra:'cardin',cw:Math.min(190,Math.floor((innerWidth-60)/2))})}<div class="cap">The card</div><div class="timer" id="timer"></div></div>
       <div>${cardHTML({hex:'#999999',label:'',id:'mine',cw:Math.min(190,Math.floor((innerWidth-60)/2))})}<div class="cap">Your mix</div><div class="timer"></div></div>
@@ -360,7 +373,21 @@ function matchScreen(o){
   const ms=VIEW_MS[o.view];
   if(ms){let left=Math.ceil(ms/1000);const t=app.querySelector('#timer');t.textContent=left+'…';
     const tick=()=>{left--;if(left<=0){t.textContent='Card hidden. From memory!';app.querySelector('#tcard').classList.add('flipped');}else{t.textContent=left+'…';later(tick,1000);}};later(tick,1000);}
-  on('#lock','click',()=>o.onLock(cur));
+  let locked=false,hurrying=false;
+  const lock=()=>{if(locked)return;locked=true;o.onLock(cur);};
+  on('#lock','click',lock);
+  // hurry-up: once the other player has locked in, you get a few seconds before your mix locks itself
+  const ctl={hurry(deadline,who){
+    if(hurrying||locked)return;hurrying=true;const total=Math.max(1,deadline-Date.now()),box=app.querySelector('#hurry');box.hidden=false;
+    box.innerHTML=`<b>${esc(who)} locked in!</b><span><span id="hleft"></span> to lock yours in</span><div class="hbar"><i></i></div>`;
+    const bar=box.querySelector('i'),txt=box.querySelector('#hleft');
+    const tick=()=>{if(locked)return;const left=deadline-Date.now();
+      if(left<=0){txt.textContent='Time\'s up';bar.style.width='0%';lock();return;}
+      txt.textContent=Math.ceil(left/1000)+' s';bar.style.width=Math.min(100,left/total*100)+'%';box.classList.toggle('urgent',left<=5000);
+      timers.push(setTimeout(tick,200));};
+    tick();}};
+  if(o.hurry)ctl.hurry(o.hurry,o.hurryWho||'They');
+  return ctl;
 }
 
 /* ---------- home ---------- */
@@ -370,35 +397,39 @@ function home(){
   <section class="sticker ink online-box"><h3>Play on two phones</h3>
     <p>One of you starts a room and the other joins with its four-letter code. You each play on your own phone, anywhere with internet.</p>
     <div class="row"><button class="btn" id="host">Start a room</button><button class="btn plain" id="join">Join a room</button></div></section>
-  <p class="center muted">Or share one phone:</p>
+  <p class="center muted">Or play on one phone:</p>
   <div class="modes">
     <button class="mode sticker ink" id="m-vs"><div class="art">${blobSVG('--p1','happy')}${cardHTML({hex:'#F2A65A',cw:62,kind:'happy'})}${blobSVG('--p2','meh')}</div>
       <h3>Colour Duel</h3><p>You both get the same card and mix it from scratch. Closest mix lands a hit. The bigger the gap, the harder it hurts.</p></button>
     <button class="mode sticker ink" id="m-ex"><div class="art">${cardHTML({hex:'#7FC8A9',cw:58,kind:'love'})}${cardHTML({hex:'#B07CC6',cw:58,kind:'happy'})}${cardHTML({hex:'#F06C7E',cw:58,kind:'wow'})}</div>
       <h3>Card Swap</h3><p>Each of you makes a little deck of colour cards for the other. Whoever matches the other's deck best wins.</p></button>
   </div>
+  <button class="mode sticker ink" id="m-solo"><div class="art">${cardHTML({hex:'#5FB3C9',cw:58,kind:'happy'})}${blobSVG('--p1','love')}<span class="pill" style="align-self:center">best ${Math.max(store.get('best:look',0),store.get('best:glimpse',0),store.get('best:flash',0))}</span></div>
+    <h3>Solo Streak</h3><p>Just you. Match colour after colour until your hearts run out. The further off you are, the more it hurts, and it hurts more every five levels.</p></button>
   <div class="row c"><button class="link" id="open">Got a code from your partner? Open it here</button></div>
   <div class="note sticker ink"><b>How close is close?</b><p>Hugh measures the gap between two colours with CIEDE2000 (ΔE), the colour-difference formula print shops use. A ΔE under about 2.3 is a difference most eyes can't see. A perfect match scores 100, ΔE 5 scores about 83, ΔE 10 about 63, and ΔE 20 about 32.</p></div>`);
-  on('#m-vs','click',vsSetup);on('#m-ex','click',exSetup);on('#open','click',()=>pasteScreen());
+  on('#m-vs','click',vsSetup);on('#m-ex','click',exSetup);on('#m-solo','click',soloSetup);on('#open','click',()=>pasteScreen());
   on('#host','click',()=>roomName(true));on('#join','click',()=>roomName(false));
 }
 
 /* ---------- Colour Duel ---------- */
 let VS;
 function vsSetup(){
-  const n=store.get('names',['','']);let hp=100,view='look';
+  const n=store.get('names',['','']);let hp=100,view='look',hurry=20;
   show(`<h2>Colour Duel</h2><section class="sticker ink panel">
     <div class="row"><label class="f">Player one<input type="text" id="n1" maxlength="18" placeholder="Player 1" value="${esc(n[0])}"></label>
     <label class="f">Player two<input type="text" id="n2" maxlength="18" placeholder="Player 2" value="${esc(n[1])}"></label></div>
     <div class="stack"><span class="seg-label">Hearts each</span>${seg('hp',[['60','60 (quick)'],['100','100'],['160','160 (long)']],'100')}</div>
     <div class="stack"><span class="seg-label">How you see the card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['flash','Flash (2 s)']],'look')}
     <p class="hint">Glimpse and Flash flip the card over after a few seconds, so you match from memory.</p></div>
+    <div class="stack"><span class="seg-label">Hurry-up timer</span>${seg('hurry',[['0','Off'],['10','10 s'],['20','20 s'],['30','30 s']],'20')}
+    <p class="hint">Once the first player locks in, the second player has this long before their mix locks itself.</p></div>
     <p class="hint">Damage is the gap between your two scores. From round 3 it's multiplied by 1.5, from round 5 by 2, up to 3. A match within ΔE 2 adds a 10 point bullseye bonus.</p>
     <div class="row"><button class="btn" id="start">Start the duel</button><button class="link" id="back">Back</button></div></section>`);
-  bindSeg('hp',v=>hp=+v);bindSeg('view',v=>view=v);on('#back','click',home);
+  bindSeg('hp',v=>hp=+v);bindSeg('view',v=>view=v);bindSeg('hurry',v=>hurry=+v);on('#back','click',home);
   on('#start','click',()=>{const names=[app.querySelector('#n1').value.trim()||'Player 1',app.querySelector('#n2').value.trim()||'Player 2'];
     store.set('names',[app.querySelector('#n1').value.trim(),app.querySelector('#n2').value.trim()]);
-    VS={names,hp:[hp,hp],max:hp,view,round:1,history:[]};vsRound();});
+    VS={names,hp:[hp,hp],max:hp,view,hurry,round:1,history:[]};vsRound();});
 }
 const mult=r=>Math.min(3,1+0.5*Math.floor((r-1)/2));
 const PV=['--p1','--p2'];
@@ -407,7 +438,7 @@ function vsRound(){
   const top=`Round ${VS.round} · ×${mult(VS.round)}`;
   const turn=i=>{const p=order[i];
     passScreen(VS.names[p],PV[p],i===0?`${esc(VS.names[order[1]])}, look away. A new card is coming.`:`${esc(VS.names[order[0]])} has locked in. No peeking at their mix!`,()=>
-      matchScreen({who:VS.names[p],colVar:PV[p],top,card:{hex:target,label},view:VS.view,onLock:hex=>{picks[p]=hex;i===0?turn(1):vsReveal(target,label,picks);}}));};
+      matchScreen({who:VS.names[p],colVar:PV[p],top,card:{hex:target,label},view:VS.view,hurry:i===1&&VS.hurry?Date.now()+VS.hurry*1000:0,hurryWho:VS.names[order[0]],onLock:hex=>{picks[p]=hex;i===0?turn(1):vsReveal(target,label,picks);}}));};
   turn(0);
 }
 function hpBar(p){const pct=Math.max(0,VS.hp[p]/VS.max*100);return `<div class="hp"><i id="hp${p}" style="width:${pct}%;background-color:var(${PV[p]})"></i></div><div class="hpnum" id="hpn${p}">${Math.max(0,Math.round(VS.hp[p]))} / ${VS.max}</div>`;}
@@ -456,6 +487,63 @@ function vsOver(){
     <div class="row c">${VS.online?(NET.host?'<button class="btn" id="again">Rematch</button>':'')+'<button class="btn plain" id="room">Back to the room</button>':'<button class="btn" id="again">Rematch</button><button class="btn plain" id="home">Home</button>'}</div></section>`);
   if(VS.online){on('#again','click',onlineRematch);on('#room','click',backToRoom);return;}
   on('#again','click',()=>{VS={...VS,hp:[VS.max,VS.max],round:1,history:[]};vsRound();});on('#home','click',home);
+}
+
+/* ---------- Solo Streak ---------- */
+let SO;
+const soloMult=l=>1+0.5*Math.floor((l-1)/5);
+const soloDamage=(score,l)=>Math.round((100-score)*0.4*soloMult(l));
+function soloSetup(){
+  let view=store.get('soloView','look');
+  const best=v=>store.get('best:'+v,0);
+  show(`<h2>Solo Streak</h2><section class="sticker ink panel">
+    <p>Match colour after colour until your hearts run out. Every match costs hearts: the further off you are, the more you lose. A score of ${NAILED} or more counts as a colour nailed, and that's your high score.</p>
+    <div class="stack"><span class="seg-label">How you see the card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['flash','Flash (2 s)']],view)}</div>
+    <p class="hint">Damage multiplies every five levels: ×1.5 from level 6, ×2 from level 11, and so on. A match within ΔE 2 is a bullseye and gives back 5 hearts.</p>
+    <p id="best" class="hint"></p>
+    <div class="row"><button class="btn" id="start">Start a run</button><button class="link" id="back">Back</button></div></section>`);
+  const sb=()=>app.querySelector('#best').textContent=best(view)?`Your best with “${VIEW_TEXT[view]}”: ${best(view)} nailed.`:'No best score yet for this setting.';
+  sb();bindSeg('view',v=>{view=v;store.set('soloView',v);sb();});on('#back','click',home);
+  on('#start','click',()=>{SO={hp:100,max:100,level:1,nailed:0,view,history:[]};soloLevel();});
+}
+function soloLevel(){
+  const target=randomColour(),label=nameFor(target);
+  matchScreen({who:`Nailed ${SO.nailed}`,colVar:'--p1',top:`Level ${SO.level} · ×${soloMult(SO.level)}`,card:{hex:target,label},view:SO.view,onLock:hex=>soloReveal(target,label,hex)});
+}
+function soloReveal(target,label,pick){
+  const {dE,score}=judge(target,pick),m=soloMult(SO.level),nailed=score>=NAILED,bull=dE<2;
+  let dmg=soloDamage(score,SO.level);const before=SO.hp;
+  SO.hp=Math.min(SO.max,SO.hp-dmg+(bull?5:0));if(nailed)SO.nailed++;
+  SO.history.push({target,pick,score});
+  const dead=SO.hp<=0,cw=Math.min(170,Math.floor((innerWidth-70)/2));
+  show(`<div class="topbar"><span class="pill p1">Nailed ${SO.nailed}</span><span class="pill">Level ${SO.level} · ×${m}</span></div>
+    <div class="solo-arena"><div>${cardHTML({hex:target,label,kind:'wow',cw,extra:'cardin'})}<div class="cap">The card</div></div>
+      <div style="position:relative" id="mixcol">${cardHTML({hex:pick,label:'',kind:mood(dE),cw,flipped:true,id:'pc'})}<div class="cap">Your mix</div></div></div>
+    <div class="stack" style="align-items:center"><div class="score" id="sc">–</div><div class="de">ΔE ${dE.toFixed(1)} · ${verdict(dE)}</div>
+      <div class="hp" style="max-width:320px"><i id="shp" style="width:${Math.max(0,before)/SO.max*100}%;background-color:var(--p1)"></i></div><div class="hpnum" id="shn">${Math.max(0,before)} / ${SO.max}</div></div>
+    <div id="out"></div>`);
+  later(()=>app.querySelector('#pc').classList.remove('flipped'),400);
+  later(()=>{const el=app.querySelector('#sc'),t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/700);el.textContent=(score*k).toFixed(1);if(k<1)requestAnimationFrame(f);};requestAnimationFrame(f);},900);
+  later(()=>{
+    app.querySelector('#shp').style.width=Math.max(0,SO.hp)/SO.max*100+'%';app.querySelector('#shn').textContent=`${Math.max(0,SO.hp)} / ${SO.max}`;
+    if(dmg>0)app.querySelector('#mixcol').insertAdjacentHTML('beforeend',`<div class="dmg">−${dmg}</div>`);
+    const head=nailed?(bull?'Bullseye! Nailed it':'Nailed it!'):dmg<=8?'Close one':'Ouch';
+    const line=`${dmg?`You lose ${dmg} heart${dmg>1?'s':''}${m>1?` (×${m})`:''}.`:'No damage.'}${bull?' +5 hearts back for the bullseye.':''}`;
+    app.querySelector('#out').innerHTML=`<div class="stack" style="align-items:center"><div class="sticker ink banner pop"><h3>${head}</h3><p>${line}</p></div>
+      <button class="btn" id="next">${dead?'See your score':(SO.level%5===0?`Next colour · damage now ×${soloMult(SO.level+1)}`:'Next colour')}</button></div>`;
+    on('#next','click',()=>{if(dead)soloOver();else{SO.level++;soloLevel();}});
+  },1900);
+}
+function soloOver(){
+  const key='best:'+SO.view,prev=store.get(key,0),isBest=SO.nailed>prev;if(isBest)store.set(key,SO.nailed);
+  const avg=SO.history.reduce((a,h)=>a+h.score,0)/SO.history.length;
+  show(`${isBest&&SO.nailed?confetti():''}<section class="sticker ink pass pop">${blobSVG('--p1',SO.nailed>=prev&&SO.nailed?'love':'sad',isBest?'win':'')}
+    <h2>${isBest&&SO.nailed?'New best! ':''}You nailed ${SO.nailed} colour${SO.nailed===1?'':'s'}</h2>
+    <div class="statrow"><div class="sticker ink stat"><b>${SO.level}</b><span>levels</span></div><div class="sticker ink stat"><b>${avg.toFixed(1)}</b><span>average score</span></div><div class="sticker ink stat"><b>${Math.max(prev,SO.nailed)}</b><span>best nailed</span></div></div>
+    <div class="hist">${SO.history.map((h,i)=>`<div class="hcell"><div class="tri" style="width:64px"><i style="background:${h.target}"></i><i style="background:${h.pick};flex:1;border-inline:0;border-left:2px solid var(--ink)"></i></div><span>${h.score>=NAILED?'★ ':''}${Math.round(h.score)}</span></div>`).join('')}</div>
+    <p class="hint">Each pair is the card, then your mix. Stars are colours you nailed.</p>
+    <div class="row c"><button class="btn" id="again">Go again</button><button class="btn plain" id="home">Home</button></div></section>`);
+  on('#again','click',()=>{SO={hp:100,max:100,level:1,nailed:0,view:SO.view,history:[]};soloLevel();});on('#home','click',home);
 }
 
 /* ---------- Card Swap ---------- */
@@ -605,7 +693,7 @@ const PEER_PREFIX='huematchme-r5t8-';
 const peerOpts=()=>Object.assign({debug:0},window.HUGH_PEER_SERVER||{});
 const DEVICE=(()=>{let d=store.get('device','');if(!d){d='d'+Math.random().toString(36).slice(2,12);store.set('device',d);}return d;})();
 const NET={peer:null,conn:null,host:false,code:null,active:false,rejoin:null,doc:null,intents:{},pend:{},key:'',overSeen:''};
-const LOBBY={opts:store.get('opts',{mode:'duel',hp:100,view:'look',count:5,sview:'look'})};
+const LOBBY={opts:Object.assign({mode:'duel',hp:100,view:'look',hurry:20,count:5,sview:'look'},store.get('opts',{}))};
 const ME=()=>NET.host?0:1;
 const up=()=>!!(NET.conn&&NET.conn.open);
 const saveDoc=()=>store.set('doc:'+NET.code,NET.doc);
@@ -696,7 +784,7 @@ function newGame(o){
   const gid=Math.random().toString(36).slice(2,10);
   if(o.mode==='swap')return {gid,mode:'swap',count:[3,5,7].includes(+o.count)?+o.count:5,view:['look','glimpse','name'].includes(o.sview)?o.sview:'look',decks:[null,null],res:[null,null]};
   const hp=[60,100,160].includes(+o.hp)?+o.hp:100,target=randomColour();
-  return {gid,mode:'duel',view:['look','glimpse','flash'].includes(o.view)?o.view:'look',max:hp,hp:[hp,hp],hpBefore:[hp,hp],round:1,target,label:nameFor(target),picks:[null,null],revealed:false,ready:[false,false],history:[],over:false};
+  return {gid,mode:'duel',hurry:[0,10,20,30].includes(+o.hurry)?+o.hurry:20,view:['look','glimpse','flash'].includes(o.view)?o.view:'look',max:hp,hp:[hp,hp],hpBefore:[hp,hp],round:1,target,label:nameFor(target),picks:[null,null],revealed:false,ready:[false,false],history:[],over:false};
 }
 function apply(seat,it){
   const d=NET.doc,g=d.game;if(!it||typeof it!=='object')return;
@@ -802,7 +890,7 @@ function backToRoom(){act({k:'lobby',gid:NET.doc&&NET.doc.game&&NET.doc.game.gid
 function renderOnline(){
   if(!NET.active)return;
   const d=NET.doc,me=ME(),them=1-me;
-  let key,draw;
+  let key,draw,post=null;
   if(!d){key='connecting';draw=()=>waitScreen(`Joining room ${esc(NET.code)}…`);}
   else if(!NET.host&&d.guest&&d.guest!==DEVICE){key='full';draw=()=>{show(`<section class="sticker ink pass">${blobSVG('--p2','sad')}<h2>That room is full</h2><p class="muted">Someone else is playing ${esc(d.names[0])} in room ${esc(NET.code)}.</p><button class="btn" id="leave">OK</button></section>`);on('#leave','click',leaveRoom);};}
   else if(!d.game){key=`lobby|${d.names.join('|')}|${!!d.guest}|${up()}`;draw=lobby;}
@@ -815,7 +903,9 @@ function renderOnline(){
       else if(g.revealed&&myReady){key=`ready|${g.gid}|${g.round}`;draw=()=>waitScreen(`Waiting for ${nm[them]} to be ready…`);}
       else if(g.revealed){key=`rev|${g.gid}|${g.round}`;draw=()=>{VS={names:d.names,hp:g.hpBefore.slice(),max:g.max,round:g.round,history:g.history.slice(0,-1),online:true};vsReveal(g.target,g.label,g.picks);};}
       else if(myPick){key=`lock|${g.gid}|${g.round}`;draw=()=>waitScreen(`Locked in! Waiting for ${nm[them]}…`,myPick);}
-      else{key=`match|${g.gid}|${g.round}`;draw=()=>matchScreen({who:d.names[me],colVar:PV[me],top:`Round ${g.round} · ×${mult(g.round)}`,card:{hex:g.target,label:g.label},view:g.view,
+      else{key=`match|${g.gid}|${g.round}`;
+        if(g.hurry&&g.picks[them])post=()=>{const hk='hurry:'+g.gid+':'+g.round;let dl=store.get(hk,0);if(!dl){dl=Date.now()+g.hurry*1000;store.set(hk,dl);}NET.matchCtl&&NET.matchCtl.hurry(dl,d.names[them]);};
+        draw=()=>NET.matchCtl=matchScreen({who:d.names[me],colVar:PV[me],top:`Round ${g.round} · ×${mult(g.round)}`,card:{hex:g.target,label:g.label},view:g.view,
         onLock:hex=>act({k:'pick',gid:g.gid,round:g.round,hex})});}
     }else{
       const myDeck=g.decks[me]||(pending('deck')&&pending('deck').cards),myRes=g.res[me]||(pending('res')&&pending('res').res);
@@ -835,8 +925,9 @@ function renderOnline(){
         {initial:store.get('draft:'+g.gid,null),onSave:deck=>store.set('draft:'+g.gid,deck)});}
     }
   }
-  if(key===NET.key||NET.away)return;
-  NET.key=key;draw();
+  if(NET.away)return;
+  if(key!==NET.key){NET.matchCtl=null;NET.key=key;draw();}
+  if(post)post();
 }
 function onlineNext(r,over){
   const g=NET.doc&&NET.doc.game;if(!g)return;
@@ -857,12 +948,13 @@ function lobby(){
       app.querySelector('#opts').innerHTML=o.mode==='duel'?
         `<div class="stack"><span class="seg-label">Hearts each</span>${seg('hp',[['60','60 (quick)'],['100','100'],['160','160 (long)']],String(o.hp))}</div>
          <div class="stack"><span class="seg-label">How you see the card</span>${seg('view',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['flash','Flash (2 s)']],o.view)}</div>
+         <div class="stack"><span class="seg-label">Hurry-up timer</span>${seg('hurry',[['0','Off'],['10','10 s'],['20','20 s'],['30','30 s']],String(o.hurry))}</div>
          <p class="hint">You both get the same card at the same time. Closest mix hits for the gap between your scores.</p>`:
         `<div class="stack"><span class="seg-label">Cards per deck</span>${seg('count',[['3','3'],['5','5'],['7','7']],String(o.count))}</div>
          <div class="stack"><span class="seg-label">How the matcher sees each card</span>${seg('sview',[['look','Card stays up'],['glimpse','Glimpse (5 s)'],['name','Name only']],o.sview)}</div>
          <p class="hint">You each make a deck at the same time, then play each other's. Best total wins.</p>`;
       const sv=()=>store.set('opts',o);
-      if(o.mode==='duel'){bindSeg('hp',v=>{o.hp=+v;sv();});bindSeg('view',v=>{o.view=v;sv();});}else{bindSeg('count',v=>{o.count=+v;sv();});bindSeg('sview',v=>{o.sview=v;sv();});}
+      if(o.mode==='duel'){bindSeg('hurry',v=>{o.hurry=+v;sv();});bindSeg('hp',v=>{o.hp=+v;sv();});bindSeg('view',v=>{o.view=v;sv();});}else{bindSeg('count',v=>{o.count=+v;sv();});bindSeg('sview',v=>{o.sview=v;sv();});}
     };
     opts();bindSeg('mode',v=>{o.mode=v;store.set('opts',o);opts();});
     on('#start','click',onlineRematch);

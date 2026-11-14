@@ -5,6 +5,8 @@ A cute colour matching game for two. You get a colour card and mix it from scrat
 ## Modes
 
 - **Colour Duel**: you both get the same card. The closer mix wins the round and hits the other player for the gap between your scores. Damage goes up as the rounds go on (×1.5 from round 3, ×2 from round 5, up to ×3), and a match within ΔE 2 adds a 10 point bullseye bonus. The card can stay up, or flip over after 5 or 2 seconds so you match from memory.
+- **Hurry-up timer** (Colour Duel): once one player locks in, the other gets 10, 20 or 30 seconds before their mix locks itself.
+- **Solo Streak**: match colour after colour until your hearts run out. Every match costs hearts (40% of the points you missed), the damage multiplies by 1.5 every five levels, and a bullseye (ΔE under 2) gives 5 hearts back. Your high score is how many colours you nailed (85+), saved per card setting.
 - **Card Swap**: you each make a deck of 3, 5 or 7 named colour cards, then match each other's deck. Highest total wins. In "Name only" the matcher sees just the name, like "inside of a ripe mango".
 
 Closeness is measured with CIEDE2000 (ΔE). A perfect match scores 100, ΔE 5 about 83, ΔE 10 about 63.
